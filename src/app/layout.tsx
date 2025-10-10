@@ -26,6 +26,9 @@ export const metadata: Metadata = {
     template: "%s — Lastore",
   },
   description: "A minimal e-commerce clothing store built with Next.js, Tailwind CSS, and shadcn/ui.",
+  appleWebApp: {
+    capable: true,
+  },
 };
 
 export default function RootLayout({

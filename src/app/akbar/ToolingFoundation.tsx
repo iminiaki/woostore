@@ -108,9 +108,8 @@ function AnimatedLines() {
               const dash = 280 + (i % 7) * 20;
               return (
                 <g key={i} className="motion-safe:[animation:dashmove_var_--t_linear_infinite]" style={{
-                  // @ts-ignore — custom property used in CSS below
-                  ['--t' as any]: `${speed}s`,
-                }}>
+                  ['--t' as '--t']: `${speed}s`,
+                } as React.CSSProperties}>
                   <line x1="-100" y1={y} x2="1300" y2={y} stroke="url(#strokeFade)" strokeWidth={1}
                         strokeDasharray={dash} strokeDashoffset={dash}
                   />
