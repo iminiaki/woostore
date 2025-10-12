@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { posts } from "@/data/mock-data";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { fetchWpPosts } from "@/lib/wordpress";
 
 function formatDate(date: Date): string {
   const now = new Date();
@@ -15,7 +15,8 @@ function formatDate(date: Date): string {
   return `${Math.floor(diffDays / 30)} months ago`;
 }
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const posts = await fetchWpPosts({ per_page: 9 });
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 space-y-6">
       <div className="mb-6">
@@ -46,7 +47,7 @@ export default function BlogPage() {
                   {post.excerpt}
                 </p>
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>By {post.author.name}</span>
+                  <span>By {post.author.name || ""}</span>
                   <div className="flex items-center gap-2">
                     <span>{post.readTime} min read</span>
                     <span>•</span>

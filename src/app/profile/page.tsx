@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { mockUser, orders } from "@/data/mock-data";
+import { mockUser } from "@/data/mock-data";
+import { useEffect } from "react";
 import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -84,48 +85,52 @@ export default function ProfilePage() {
     wishlistDispatch({ type: "remove", productId: product.id });
   };
 
+  const [wooOrders, setWooOrders] = useState<any[]>([]);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/woo/orders?per_page=20', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setWooOrders(data);
+        }
+      } catch {}
+    };
+    load();
+  }, []);
   const renderOrders = () => (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">Your Orders</h2>
       <div className="space-y-4">
-        {orders.map((order) => (
+        {wooOrders.map((order) => (
           <Card key={order.id}>
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="font-medium">Order {order.id}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Placed on {order.createdAt.toLocaleDateString()}
+                    Placed on {new Date(order.date_created).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="text-right">
                   <Badge 
-                    variant={order.status === "delivered" ? "default" : "secondary"}
+                    variant={order.status === "completed" ? "default" : "secondary"}
                     className="mb-2"
                   >
                     {order.status}
                   </Badge>
-                  <p className="font-medium">${order.total.toFixed(2)}</p>
+                  <p className="font-medium">${order.total}</p>
                 </div>
               </div>
               
               <div className="space-y-3">
-                {order.items.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-3">
-                    <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted flex-shrink-0">
-                      <Image
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+                {order.line_items?.map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted flex-shrink-0" />
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Size: M • Color: {item.product.colors[0]} • Qty: {item.quantity}
-                      </p>
-                      <p className="text-sm font-medium">${item.price.toFixed(2)}</p>
+                      <p className="font-medium text-sm">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                      <p className="text-sm font-medium">${item.total}</p>
                     </div>
                   </div>
                 ))}
@@ -133,7 +138,6 @@ export default function ProfilePage() {
               
               <div className="flex gap-2 mt-4 pt-4 border-t">
                 <Button variant="outline" size="sm">View Details</Button>
-                <Button variant="outline" size="sm">Reorder</Button>
               </div>
             </CardContent>
           </Card>

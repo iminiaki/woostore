@@ -15,6 +15,12 @@ export default function CheckoutPage() {
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedCity, setSelectedCity] = useState<string>("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address1, setAddress1] = useState("");
+  const [address2, setAddress2] = useState("");
+  const [zip, setZip] = useState("");
 
   // Get all countries
   const countries = Country.getAllCountries();
@@ -36,6 +42,23 @@ export default function CheckoutPage() {
     setSelectedCity(""); // Reset city when state changes
   };
 
+  const placeOrder = async () => {
+    if (state.items.length === 0) return;
+    const line_items = state.items.map(i => ({ product_id: Number((i.product.id || '').replace(/\D/g, '')) || Number(i.productId.replace(/\D/g, '')), quantity: i.quantity }));
+    const [first_name, ...rest] = fullName.split(' ');
+    const last_name = rest.join(' ');
+    const billing = { first_name, last_name, address_1: address1, address_2: address2, city: selectedCity, state: selectedState, postcode: zip, country: selectedCountry, email, phone } as any;
+    try {
+      const res = await fetch('/api/woo/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ line_items, billing }) });
+      if (!res.ok) throw new Error('Failed to place order');
+      await res.json();
+      dispatch({ type: "clear" });
+      alert("Order placed!");
+    } catch (e) {
+      alert("Failed to place order");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <div className="mb-6">
@@ -53,9 +76,9 @@ export default function CheckoutPage() {
             <p className="text-muted-foreground">Enter your shipping and payment details.</p>
           </div>
           <form className="grid gap-4">
-            <Input placeholder="Full name" />
-            <Input placeholder="Email" type="email" />
-            <Input placeholder="Phone" />
+            <Input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Select value={selectedCountry} onValueChange={handleCountryChange}>
                 <SelectTrigger className="w-full">
@@ -94,13 +117,13 @@ export default function CheckoutPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Input placeholder="Address" />
+            <Input placeholder="Address" value={address1} onChange={(e) => setAddress1(e.target.value)} />
             <div className="grid grid-cols-2 gap-4">
-              <Input placeholder="Additional Address Line" />
-              <Input placeholder="ZIP/Postal Code" />
+              <Input placeholder="Additional Address Line" value={address2} onChange={(e) => setAddress2(e.target.value)} />
+              <Input placeholder="ZIP/Postal Code" value={zip} onChange={(e) => setZip(e.target.value)} />
             </div>
             <Textarea placeholder="Notes (optional)" rows={4} />
-            <Button type="submit" onClick={(e) => { e.preventDefault(); dispatch({ type: "clear" }); alert("Order placed!"); }}>Place order</Button>
+            <Button type="submit" onClick={(e) => { e.preventDefault(); placeOrder(); }}>Place order</Button>
           </form>
         </div>
         <aside className="space-y-4 rounded-lg border p-4">

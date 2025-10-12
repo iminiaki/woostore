@@ -13,104 +13,56 @@ interface CouponInputProps {
   className?: string;
 }
 
-// Mock coupon data - in a real app, this would come from your backend
-const mockCoupons: Coupon[] = [
-  {
-    code: "SAVE10",
-    type: "percentage",
-    value: 10,
-    minAmount: 50,
-    maxDiscount: 100,
-    validFrom: new Date("2024-01-01"),
-    validTo: new Date("2025-12-31"),
-    usageLimit: 1000,
-    usedCount: 500,
-    description: "Save 10% on orders over $50"
-  },
-  {
-    code: "FREESHIP",
-    type: "fixed",
-    value: 15,
-    minAmount: 100,
-    validFrom: new Date("2024-01-01"),
-    validTo: new Date("2025-12-31"),
-    usageLimit: 500,
-    usedCount: 200,
-    description: "Free shipping on orders over $100"
-  },
-  {
-    code: "WELCOME20",
-    type: "percentage",
-    value: 20,
-    minAmount: 30,
-    maxDiscount: 50,
-    validFrom: new Date("2024-01-01"),
-    validTo: new Date("2025-12-31"),
-    usageLimit: 200,
-    usedCount: 50,
-    description: "Welcome discount - 20% off"
-  }
-];
+async function getWooCoupon(code: string) {
+  const res = await fetch(`/api/woo/coupons?code=${encodeURIComponent(code)}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  return res.json() as Promise<{ code: string; discount_type: string; amount: string; minimum_amount?: string; date_expires?: string | null } | null>;
+}
 
 export function CouponInput({ subtotal, className = "" }: CouponInputProps) {
   const [couponCode, setCouponCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { state, dispatch } = useCart();
 
-  const validateAndApplyCoupon = (code: string) => {
-    const coupon = mockCoupons.find(c => c.code.toUpperCase() === code.toUpperCase());
-    if (!coupon) {
+  const validateAndApplyCoupon = async (code: string) => {
+    const woo = await getWooCoupon(code);
+    if (!woo) {
       setError("Invalid coupon code");
       return;
     }
-
-    // Validate coupon
-    const now = new Date();
-    if (now < coupon.validFrom || now > coupon.validTo) {
-      setError("Coupon has expired or is not yet valid");
+    const minAmount = woo.minimum_amount ? parseFloat(woo.minimum_amount) : undefined;
+    if (minAmount && subtotal < minAmount) {
+      setError(`Minimum order amount of $${minAmount} required`);
       return;
     }
-
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      setError("Coupon usage limit reached");
-      return;
-    }
-
-    if (coupon.minAmount && subtotal < coupon.minAmount) {
-      setError(`Minimum order amount of $${coupon.minAmount} required`);
-      return;
-    }
-
-    // Calculate discount
     let discountAmount = 0;
-    if (coupon.type === "percentage") {
-      discountAmount = (subtotal * coupon.value) / 100;
-      if (coupon.maxDiscount) {
-        discountAmount = Math.min(discountAmount, coupon.maxDiscount);
-      }
+    if (woo.discount_type.includes("percent")) {
+      const pct = parseFloat(woo.amount || "0");
+      discountAmount = (subtotal * pct) / 100;
     } else {
-      discountAmount = coupon.value;
+      discountAmount = parseFloat(woo.amount || "0");
     }
-
     const finalPrice = subtotal - discountAmount;
-
-    // Apply coupon to cart
+    const localCoupon: Coupon = {
+      code: woo.code.toUpperCase(),
+      type: woo.discount_type.includes("percent") ? "percentage" : "fixed",
+      value: parseFloat(woo.amount || "0"),
+      validFrom: new Date(0),
+      validTo: new Date("2999-12-31"),
+      usedCount: 0,
+      minAmount,
+    };
     dispatch({ 
       type: "applyCoupon", 
-      coupon: {
-        coupon,
-        discountAmount,
-        finalPrice
-      }
+      coupon: { coupon: localCoupon, discountAmount, finalPrice }
     });
-
     setError(null);
     setCouponCode("");
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
-    validateAndApplyCoupon(couponCode.trim());
+    await validateAndApplyCoupon(couponCode.trim());
   };
 
   const handleRemoveCoupon = () => {

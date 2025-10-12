@@ -28,12 +28,34 @@ export function filterProducts(products: Product[], query: ProductQuery): Produc
       if (!matchesSearch) return false;
     }
     
-    if (query.category && p.category !== query.category) return false;
-    if (query.subCategory && p.subCategory !== query.subCategory) return false;
-    if (query.brand && query.brand.length && !query.brand.includes(p.brand)) return false;
-    if (query.material && query.material.length && !query.material.includes(p.material)) return false;
-    if (query.color && query.color.length && !query.color.some((c) => p.colors.includes(c))) return false;
-    if (query.size && query.size.length && !query.size.some((s) => p.sizes.includes(s))) return false;
+    const lower = (s?: string) => (s || "").toLowerCase();
+    const lowerArr = (arr?: string[]) => (arr || []).map((s) => s.toLowerCase());
+    if (query.category) {
+      const cat = lower(query.category);
+      const inTags = (p.tags || []).map(lower).includes(cat);
+      if (lower(p.category) !== cat && !inTags) return false;
+    }
+    if (query.subCategory) {
+      const sub = lower(query.subCategory);
+      const inTags = (p.tags || []).map(lower).includes(sub);
+      if (lower(p.subCategory) !== sub && !inTags) return false;
+    }
+    if (query.brand && query.brand.length) {
+      const set = new Set(query.brand.map(lower));
+      if (!set.has(lower(p.brand))) return false;
+    }
+    if (query.material && query.material.length) {
+      const set = new Set(query.material.map(lower));
+      if (!set.has(lower(p.material))) return false;
+    }
+    if (query.color && query.color.length) {
+      const set = new Set(query.color.map(lower));
+      if (!lowerArr(p.colors).some((c) => set.has(c))) return false;
+    }
+    if (query.size && query.size.length) {
+      const set = new Set(query.size.map(lower));
+      if (!lowerArr(p.sizes).some((s) => set.has(s))) return false;
+    }
     if (typeof query.minPrice === "number" && p.price < query.minPrice) return false;
     if (typeof query.maxPrice === "number" && p.price > query.maxPrice) return false;
     return true;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/types";
 import { Button } from "@/components/ui/button";
+import { useCurrency } from "@/lib/use-currency";
 import { Heart, ShoppingCart, TriangleAlert } from "lucide-react";
 import { useCart } from "./cart-store";
 import { useWishlist } from "./wishlist-store";
@@ -15,7 +16,9 @@ export function ProductCard({ product }: { product: Product }) {
   const { dispatch: wishlistDispatch, isInWishlist } = useWishlist();
   const { dispatch: cartDispatch } = useCart();
   const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
+  const [variantProduct, setVariantProduct] = useState<Product>(product);
   const isWishlisted = isInWishlist(product.id);
+  const { format } = useCurrency();
 
   const handleWishlistToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -31,12 +34,33 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
     
-    // Check if product has variants
-    if (product.colors.length > 0 || product.sizes.length > 0) {
-      setIsVariantSelectorOpen(true);
-    } else {
-      cartDispatch({ type: "add", product, quantity: 1 });
-    }
+    const openWith = async () => {
+      try {
+        if (!variantProduct.variants || variantProduct.variants.length === 0) {
+          const res = await fetch(`/api/woo/products?id=${encodeURIComponent(product.id)}`, { cache: 'no-store' });
+          if (res.ok) {
+            const full = await res.json();
+            if (full?.variants && full.variants.length > 0) {
+              setVariantProduct(full);
+              setIsVariantSelectorOpen(true);
+              return;
+            }
+          }
+        }
+        if (variantProduct.colors.length > 0 || variantProduct.sizes.length > 0 || (variantProduct.variants && variantProduct.variants.length > 0)) {
+          setIsVariantSelectorOpen(true);
+        } else {
+          cartDispatch({ type: "add", product: variantProduct, quantity: 1 });
+        }
+      } catch {
+        if (variantProduct.colors.length > 0 || variantProduct.sizes.length > 0) {
+          setIsVariantSelectorOpen(true);
+        } else {
+          cartDispatch({ type: "add", product: variantProduct, quantity: 1 });
+        }
+      }
+    };
+    void openWith();
   };
 
   const handleAddToCartWithVariants = (product: Product, selectedColor: string, selectedSize: string) => {
@@ -174,11 +198,11 @@ export function ProductCard({ product }: { product: Product }) {
               {/* Price */}
               <div className="flex items-center gap-2">
                 <span className="font-medium text-sm">
-                  ${product.price.toFixed(2)}
+                  {format(product.price)}
                 </span>
                 {product.originalPrice && (
                   <span className="text-xs text-muted-foreground line-through">
-                    ${product.originalPrice.toFixed(2)}
+                    {format(product.originalPrice)}
                   </span>
                 )}
               </div>
@@ -200,7 +224,7 @@ export function ProductCard({ product }: { product: Product }) {
 
       {/* Variant Selector Modal */}
       <VariantSelector
-        product={product}
+        product={variantProduct}
         isOpen={isVariantSelectorOpen}
         onClose={() => setIsVariantSelectorOpen(false)}
         onAddToCart={handleAddToCartWithVariants}

@@ -42,47 +42,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock user data - in real app, this would come from your API
-    const mockUser: User = {
-      id: "1",
-      firstName: "John",
-      lastName: "Doe",
-      email: email,
-      phone: "+1234567890",
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    setIsLoading(false);
+    // For headless Woo, typical approach is JWT or WP Application Passwords.
+    // Here we attempt to find or create a customer by email for demo purposes.
+    try {
+      // No direct Woo endpoint for auth; simulate login by ensuring a customer exists
+      const res = await fetch('/api/woo/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+      const data = await res.json();
+      const u: User = {
+        id: String(data.id || Date.now()),
+        firstName: data.first_name || 'Customer',
+        lastName: data.last_name || '',
+        email: data.email || email,
+        phone: data.billing?.phone || '',
+      };
+      setUser(u);
+      localStorage.setItem("user", JSON.stringify(u));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signup = async (userData: {
     firstName: string;
     lastName: string;
     email: string;
+    phone: string;
     password: string;
   }) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock user data - in real app, this would come from your API
-    const mockUser: User = {
-      id: Date.now().toString(),
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      email: userData.email,
-      phone: userData.phone,
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    setIsLoading(false);
+    try {
+      const res = await fetch('/api/woo/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userData.email,
+          first_name: userData.firstName,
+          last_name: userData.lastName,
+          billing: { phone: userData.phone, email: userData.email },
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Signup failed');
+      const u: User = {
+        id: String(data.id),
+        firstName: data.first_name,
+        lastName: data.last_name,
+        email: data.email,
+        phone: data.billing?.phone || '',
+      };
+      setUser(u);
+      localStorage.setItem("user", JSON.stringify(u));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {

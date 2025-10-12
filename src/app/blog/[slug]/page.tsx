@@ -1,12 +1,12 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { posts } from "@/data/mock-data";
 import { ShareButton } from "@/components/share-button";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { fetchWpPostBySlug } from "@/lib/wordpress";
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = posts.find((p) => p.slug === slug);
+  const post = await fetchWpPostBySlug(slug);
   if (!post) return notFound();
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 space-y-6">
@@ -35,9 +35,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
         <Image src={post.image} alt={post.title} fill className="object-cover" />
       </div>
-      <div className="prose prose-neutral dark:prose-invert max-w-none">
-        <p>{post.excerpt}</p>
-      </div>
+      <div
+        className="prose prose-neutral dark:prose-invert max-w-none"
+        dangerouslySetInnerHTML={{ __html: post.content }}
+      />
     </article>
   );
 }

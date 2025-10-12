@@ -4,14 +4,14 @@ import { useState, useRef, useEffect } from "react";
 import { Search as SearchIcon, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { products } from "@/data/mock-data";
+import type { Product } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
 
 export function Search() {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [results, setResults] = useState<typeof products>([]);
+  const [results, setResults] = useState<Product[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -29,21 +29,27 @@ export function Search() {
   }, []);
 
   useEffect(() => {
-    if (query.trim().length > 0) {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(query.toLowerCase()) ||
-          product.brand.toLowerCase().includes(query.toLowerCase()) ||
-          product.category.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered.slice(0, 6));
+    const run = async () => {
+      const q = query.trim();
+      if (!q) {
+        setResults([]);
+        setIsOpen(false);
+        setSelectedIndex(-1);
+        return;
+      }
+      const res = await fetch(`/api/woo/products?search=${encodeURIComponent(q)}&per_page=6`, { cache: 'no-store' });
+      if (!res.ok) {
+        setResults([]);
+        setIsOpen(false);
+        setSelectedIndex(-1);
+        return;
+      }
+      const data = await res.json();
+      setResults(data);
       setIsOpen(true);
-      setSelectedIndex(-1); // Reset selection when results change
-    } else {
-      setResults([]);
-      setIsOpen(false);
       setSelectedIndex(-1);
-    }
+    };
+    run();
   }, [query]);
 
   // Auto-scroll selected item into view
