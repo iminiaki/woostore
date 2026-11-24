@@ -1,13 +1,22 @@
-import type { Product, SortOption } from "@/types";
+import type { FilterDefinition, FilterGroup, Product, SortOption } from "@/types";
+
+const RESERVED_QUERY_KEYS = new Set([
+  "search",
+  "category",
+  "subCategory",
+  "brand",
+  "minPrice",
+  "maxPrice",
+  "sortBy",
+]);
 
 export interface ProductQuery {
   search?: string;
   category?: string;
   subCategory?: string;
   brand?: string[];
-  material?: string[];
-  color?: string[];
-  size?: string[];
+  /** Dynamic attribute filters keyed by attribute slug */
+  attributes?: Record<string, string[]>;
   minPrice?: number;
   maxPrice?: number;
   sortBy?: SortOption;
@@ -15,25 +24,35 @@ export interface ProductQuery {
 
 export function filterProducts(products: Product[], query: ProductQuery): Product[] {
   let result = products.filter((p) => {
-    // Search functionality
     if (query.search && query.search.trim()) {
       const searchTerm = query.search.toLowerCase();
-      const matchesSearch = 
+      const attrHaystack = Object.values(p.attributeValues || {})
+        .flat()
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch =
         p.name.toLowerCase().includes(searchTerm) ||
         p.brand.toLowerCase().includes(searchTerm) ||
         p.category.toLowerCase().includes(searchTerm) ||
         p.subCategory.toLowerCase().includes(searchTerm) ||
-        p.material.toLowerCase().includes(searchTerm);
-      
+        p.material.toLowerCase().includes(searchTerm) ||
+        attrHaystack.includes(searchTerm);
+
       if (!matchesSearch) return false;
     }
-    
+
     if (query.category && p.category !== query.category) return false;
     if (query.subCategory && p.subCategory !== query.subCategory) return false;
-    if (query.brand && query.brand.length && !query.brand.includes(p.brand)) return false;
-    if (query.material && query.material.length && !query.material.includes(p.material)) return false;
-    if (query.color && query.color.length && !query.color.some((c) => p.colors.includes(c))) return false;
-    if (query.size && query.size.length && !query.size.some((s) => p.sizes.includes(s))) return false;
+    if (query.brand?.length && !query.brand.includes(p.brand)) return false;
+
+    if (query.attributes) {
+      for (const [slug, selected] of Object.entries(query.attributes)) {
+        if (!selected.length) continue;
+        const values = p.attributeValues?.[slug] || [];
+        if (!selected.some((v) => values.includes(v))) return false;
+      }
+    }
+
     if (typeof query.minPrice === "number" && p.price < query.minPrice) return false;
     if (typeof query.maxPrice === "number" && p.price > query.maxPrice) return false;
     return true;
@@ -57,24 +76,47 @@ export function filterProducts(products: Product[], query: ProductQuery): Produc
   return result;
 }
 
-export function parseQuery(params: Record<string, string | string[] | undefined>): ProductQuery {
+type ParseGroup = Pick<FilterGroup, "key"> | Pick<FilterDefinition, "key" | "kind">;
+
+export function parseQuery(
+  params: Record<string, string | string[] | undefined>,
+  filterGroups?: ParseGroup[],
+): ProductQuery {
   const toArray = (val?: string | string[]): string[] | undefined => {
     if (!val) return undefined;
     return Array.isArray(val) ? val : val.split(",").filter(Boolean);
   };
-  const num = (v?: string | string[]) => (Array.isArray(v) ? parseFloat(v[0]!) : v ? parseFloat(v) : undefined);
+  const num = (v?: string | string[]) =>
+    Array.isArray(v) ? parseFloat(v[0]!) : v ? parseFloat(v) : undefined;
+
+  const attributeKeys =
+    filterGroups
+      ?.map((g) => g.key)
+      .filter((key) => key !== "brand" && !RESERVED_QUERY_KEYS.has(key)) || [];
+
+  const attributes: Record<string, string[]> = {};
+
+  if (attributeKeys.length) {
+    for (const key of attributeKeys) {
+      const values = toArray(params[key]);
+      if (values?.length) attributes[key] = values;
+    }
+  } else {
+    for (const [key, raw] of Object.entries(params)) {
+      if (RESERVED_QUERY_KEYS.has(key)) continue;
+      const values = toArray(raw);
+      if (values?.length) attributes[key] = values;
+    }
+  }
+
   return {
     search: typeof params.search === "string" ? params.search : undefined,
     category: typeof params.category === "string" ? params.category : undefined,
     subCategory: typeof params.subCategory === "string" ? params.subCategory : undefined,
     brand: toArray(params.brand),
-    material: toArray(params.material),
-    color: toArray(params.color),
-    size: toArray(params.size),
+    attributes: Object.keys(attributes).length ? attributes : undefined,
     minPrice: num(params.minPrice),
     maxPrice: num(params.maxPrice),
     sortBy: (params.sortBy as SortOption) || "newest",
   };
 }
-
-

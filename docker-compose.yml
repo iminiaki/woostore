@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      # Host 5433 avoids clashing with a local Postgres already on 5432
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: lastore
+      POSTGRES_PASSWORD: lastore
+      POSTGRES_DB: lastore
+    volumes:
+      - lastore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lastore -d lastore"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lastore_pgdata:

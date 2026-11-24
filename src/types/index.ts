@@ -1,9 +1,13 @@
 export interface ProductVariant {
   color?: string;
   size?: string;
+  sku?: string;
   price: number;
   originalPrice?: number;
   inStock: boolean;
+  stock?: number;
+  image?: string;
+  gallery?: string[];
 }
 
 export interface Product {
@@ -14,12 +18,18 @@ export interface Product {
   originalPrice?: number; // Base original price
   images: string[];
   category: string;
+  categoryName?: string;
   subCategory: string;
+  subCategoryName?: string;
   brand: string;
   material: string;
   colors: string[];
   sizes: string[];
-  variants?: ProductVariant[]; // Variant-specific pricing
+  /** All global attribute values keyed by attribute slug (term slugs). */
+  attributeValues: Record<string, string[]>;
+  /** Hex swatches keyed by color slug */
+  colorHex?: Record<string, string>;
+  variants?: ProductVariant[]; // Variant-specific pricing / media
   rating: number;
   reviews: number;
   inStock: boolean;
@@ -27,6 +37,8 @@ export interface Product {
   newArrival: boolean;
   clearance: boolean;
   tags: string[];
+  relatedProducts?: Product[];
+  crossSells?: Product[];
   createdAt: Date;
   updatedAt: Date;
   selectedColor?: string;
@@ -38,7 +50,23 @@ export interface Category {
   name: string;
   slug: string;
   image: string;
+  description?: string;
   subCategories: SubCategory[];
+}
+
+export interface HeroSlideButton {
+  label: string;
+  href: string;
+}
+
+export interface HeroSlide {
+  id: string;
+  title: string;
+  description: string;
+  desktopImage: string;
+  mobileImage: string;
+  primaryButton: HeroSlideButton;
+  secondaryButton?: HeroSlideButton | null;
 }
 
 export interface SubCategory {
@@ -109,42 +137,64 @@ export interface CartItem {
 }
 
 export type SortOption = 'newest' | 'top-sells' | 'price-low-high' | 'price-high-low';
-export type FilterType = 'category' | 'subCategory' | 'brand' | 'material' | 'color' | 'size' | 'price';
+export type FilterType = string;
+
+export interface FilterDefinition {
+  key: string;
+  title: string;
+  kind: 'brand' | 'attribute';
+  /** Attribute UI type from admin (color → swatches). */
+  attributeType?: 'select' | 'color' | 'button';
+}
+
+export interface FilterOption {
+  label: string;
+  value: string;
+  hex?: string | null;
+}
+
+export interface FilterGroup {
+  key: string;
+  title: string;
+  kind?: 'brand' | 'attribute';
+  attributeType?: 'select' | 'color' | 'button';
+  /** Display labels (same order as optionValues when present). */
+  options: string[];
+  /** Slugs/values written to the URL; defaults to `options` when omitted. */
+  optionValues?: string[];
+  /** Parallel hex swatches for color attributes. */
+  optionHex?: (string | null)[];
+}
 
 export interface FilterState {
   categories: string[];
   subCategories: string[];
   brands: string[];
-  materials: string[];
-  colors: string[];
-  sizes: string[];
+  attributeFilters: Record<string, string[]>;
   priceRange: [number, number];
   sortBy: SortOption;
 }
 
 export interface Coupon {
+  id?: string;
   code: string;
-  type: 'percentage' | 'fixed';
+  type: 'percentage' | 'fixed' | 'free_shipping';
   value: number;
   minAmount?: number;
   maxDiscount?: number;
-  validFrom: Date;
-  validTo: Date;
+  validFrom?: Date;
+  validTo?: Date;
   usageLimit?: number;
-  usedCount: number;
+  usedCount?: number;
   applicableCategories?: string[];
   applicableProducts?: string[];
   description?: string;
+  freeShipping?: boolean;
 }
 
 export interface AppliedCoupon {
   coupon: Coupon;
   discountAmount: number;
   finalPrice: number;
-}
-
-export interface AppliedCoupon {
-  coupon: Coupon;
-  discountAmount: number;
-  finalPrice: number;
+  freeShipping?: boolean;
 }

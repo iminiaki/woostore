@@ -12,33 +12,45 @@ const navItems = [
   { href: "/profile", label: "Profile", icon: User },
 ];
 
+/** Outer radius − padding = inner radius (concentric corners). */
+const DECK_RADIUS = "1.75rem";
+const DECK_PAD = "0.375rem";
+
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:hidden">
-      <div className="flex items-center justify-around">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+      <nav
+        style={{ borderRadius: DECK_RADIUS, padding: DECK_PAD }}
+        className="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-1 border border-white/20 bg-background/55 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/40 dark:border-white/10 dark:shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
+        aria-label="Mobile"
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
-          
+          const isActive =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-label={item.label}
+              style={{ borderRadius: `calc(${DECK_RADIUS} - ${DECK_PAD})` }}
               className={cn(
-                "flex flex-col items-center gap-1 py-2 px-3 min-w-0 flex-1 transition-colors",
+                "flex flex-1 items-center justify-center py-2.5 transition-colors",
                 isActive
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-muted-foreground active:bg-foreground/5",
               )}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <Icon className={cn("h-5 w-5", isActive && "stroke-[2.25]")} />
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }

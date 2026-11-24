@@ -162,6 +162,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used within CartProvider");
+  // Safe fallback for SSR / partial prerender when provider isn't mounted yet
+  if (!ctx) {
+    return {
+      state: {
+        items: [] as CartItem[],
+        appliedCoupon: null as AppliedCoupon | null,
+      },
+      dispatch: (() => undefined) as React.Dispatch<CartAction>,
+      totalQuantity: 0,
+      subtotal: 0,
+      discountAmount: 0,
+      finalPrice: 0,
+    };
+  }
   return ctx;
 }

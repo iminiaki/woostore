@@ -9,14 +9,25 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { countActiveFilters } from "@/lib/filter-utils";
 import { Badge } from "@/components/ui/badge";
 
-type Group = { key: string; title: string; options: string[] };
+type Group = {
+  key: string;
+  title: string;
+  kind?: "brand" | "attribute";
+  attributeType?: "select" | "color" | "button";
+  options: string[];
+  optionValues?: string[];
+  optionHex?: (string | null)[];
+};
 type Option = { label: string; value: string };
 
 export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCategory }: { groups: Group[]; priceMax: number; categoryOptions?: Option[]; subOptionsByCategory?: Record<string, Option[]> }) {
   const [open, setOpen] = useState(false);
   const params = useSearchParams();
   const router = useRouter();
-  const activeFiltersCount = countActiveFilters(params);
+  const activeFiltersCount = countActiveFilters(
+    params,
+    groups.map((g) => g.key),
+  );
 
   const resetFilters = () => {
     // Get current pathname and reset all filters

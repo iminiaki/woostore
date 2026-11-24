@@ -2,28 +2,310 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useFadeIn } from "@/lib/gsap";
+import type { HeroSlide } from "@/types";
+import { cn } from "@/lib/utils";
 
-export function HomeHero() {
-  useFadeIn(".hero-animate", { delay: 0.1 });
+const INTERVAL_MS = 5500;
+const SWIPE_THRESHOLD = 40;
+
+export function HomeHero({ slides }: { slides: HeroSlide[] }) {
+  const [index, setIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const elapsedRef = useRef(0);
+  const rafRef = useRef(0);
+  const anchorRef = useRef(0);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const touchDelta = useRef({ x: 0, y: 0 });
+  const sectionRef = useRef<HTMLElement>(null);
+
+  const count = slides.length;
+  const safeIndex = count > 0 ? ((index % count) + count) % count : 0;
+  const active = slides[safeIndex];
+
+  const goTo = useCallback(
+    (next: number) => {
+      if (count <= 1) return;
+      const target = ((next % count) + count) % count;
+      elapsedRef.current = 0;
+      setProgress(0);
+      setIndex(target);
+    },
+    [count],
+  );
+
+  const goPrev = useCallback(() => {
+    if (count <= 1) return;
+    elapsedRef.current = 0;
+    setProgress(0);
+    setIndex((current) => ((current - 1) % count + count) % count);
+  }, [count]);
+
+  const goNext = useCallback(() => {
+    if (count <= 1) return;
+    elapsedRef.current = 0;
+    setProgress(0);
+    setIndex((current) => (current + 1) % count);
+  }, [count]);
+
+  useEffect(() => {
+    if (count <= 1 || paused) return;
+
+    elapsedRef.current = 0;
+    setProgress(0);
+    anchorRef.current = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = elapsedRef.current + (now - anchorRef.current);
+      anchorRef.current = now;
+
+      if (elapsed >= INTERVAL_MS) {
+        elapsedRef.current = 0;
+        setProgress(0);
+        setIndex((current) => (current + 1) % count);
+        return;
+      }
+
+      elapsedRef.current = elapsed;
+      setProgress(elapsed / INTERVAL_MS);
+      rafRef.current = window.requestAnimationFrame(tick);
+    };
+
+    rafRef.current = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafRef.current);
+  }, [safeIndex, count, paused]);
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    const ctx = gsap.context(() => {
+      gsap.from(".hero-copy > *", {
+        opacity: 0,
+        y: 16,
+        duration: 0.55,
+        stagger: 0.07,
+        delay: 0.08,
+        ease: "power2.out",
+        clearProps: "all",
+      });
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
+
+  const firstSlidePass = useRef(true);
+  useEffect(() => {
+    if (firstSlidePass.current) {
+      firstSlidePass.current = false;
+      return;
+    }
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        ".hero-dynamic",
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: "power2.out", clearProps: "all" },
+      );
+    }, sectionRef);
+    return () => ctx.revert();
+  }, [safeIndex]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    touchStart.current = { x: t.clientX, y: t.clientY };
+    touchDelta.current = { x: 0, y: 0 };
+    setPaused(true);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const t = e.touches[0];
+    if (!t) return;
+    touchDelta.current = {
+      x: t.clientX - touchStart.current.x,
+      y: t.clientY - touchStart.current.y,
+    };
+  };
+
+  const onTouchEnd = () => {
+    const { x, y } = touchDelta.current;
+    const horizontal = Math.abs(x) > Math.abs(y) * 1.15;
+    if (horizontal && Math.abs(x) >= SWIPE_THRESHOLD) {
+      if (x < 0) goNext();
+      else goPrev();
+    }
+    touchStart.current = null;
+    touchDelta.current = { x: 0, y: 0 };
+    setPaused(false);
+  };
+
+  if (!active) return null;
+
   return (
-    <section className="relative overflow-hidden noisy">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-14 md:grid-cols-2 hero-animate">
-        <div className="space-y-6">
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Minimal styles<br/>for every season</h1>
-          <p className="text-muted-foreground">Discover curated apparel with clean aesthetics and thoughtful details.<br/> Built for comfort, designed to last.</p>
-          <div className="flex gap-3">
-            <Link href="/shop"><Button size="lg">Shop now</Button></Link>
-            <Link href="/about"><Button variant="outline" size="lg">About us</Button></Link>
+    <section
+      ref={sectionRef}
+      className="relative isolate min-h-[100dvh] overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      <div className="absolute inset-0 -z-10">
+        {slides.map((slide, i) => (
+          <div
+            key={slide.id}
+            className={cn(
+              "absolute inset-0 transition-opacity duration-500 ease-out",
+              i === safeIndex ? "opacity-100" : "pointer-events-none opacity-0",
+            )}
+            aria-hidden={i !== safeIndex}
+          >
+            <Image
+              src={slide.desktopImage}
+              alt=""
+              fill
+              priority={i === 0}
+              className="hidden object-cover object-center md:block"
+              sizes="100vw"
+            />
+            <Image
+              src={slide.mobileImage}
+              alt=""
+              fill
+              priority={i === 0}
+              className="block object-cover object-[center_25%] md:hidden"
+              sizes="100vw"
+            />
+          </div>
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/25 md:hidden" />
+        <div className="absolute inset-0 hidden bg-gradient-to-r from-background/70 via-background/35 to-transparent dark:from-background/75 dark:via-background/40 dark:to-transparent md:block" />
+        <div className="absolute inset-0 hidden bg-gradient-to-t from-background/50 via-transparent to-background/15 md:block" />
+      </div>
+
+      <div className="mx-auto flex min-h-[100dvh] max-w-7xl items-end px-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] pt-[calc(7rem+env(safe-area-inset-top))] sm:pb-28 md:items-center md:pb-28 md:pt-24">
+        <div className="hero-copy relative z-10 w-full max-w-xl space-y-5 sm:space-y-7">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <Image
+              src="/logo_dark.png"
+              alt=""
+              width={44}
+              height={44}
+              priority
+              className="h-9 w-9 sm:h-11 sm:w-11 dark:hidden"
+            />
+            <Image
+              src="/logo_light.png"
+              alt=""
+              width={44}
+              height={44}
+              priority
+              className="hidden h-9 w-9 sm:h-11 sm:w-11 dark:block"
+            />
+            <span className="text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+              Lastore
+            </span>
+          </div>
+
+          <div className="h-px w-12 origin-left bg-foreground/40 sm:w-14" />
+
+          <h1
+            key={`title-${active.id}`}
+            className="hero-dynamic text-[2rem] leading-[1.1] font-semibold tracking-tight text-balance whitespace-pre-line sm:text-5xl md:text-6xl md:leading-[1.05]"
+          >
+            {active.title}
+          </h1>
+
+          {active.description ? (
+            <p
+              key={`desc-${active.id}`}
+              className="hero-dynamic max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg"
+            >
+              {active.description}
+            </p>
+          ) : null}
+
+          <div
+            key={`cta-${active.id}`}
+            className="hero-dynamic flex w-full flex-col gap-2.5 pt-1 sm:w-auto sm:flex-row sm:flex-wrap sm:gap-3"
+          >
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <Link href={active.primaryButton.href}>{active.primaryButton.label}</Link>
+            </Button>
+            {active.secondaryButton ? (
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="w-full border-foreground/20 bg-background/50 backdrop-blur-sm sm:w-auto"
+              >
+                <Link href={active.secondaryButton.href}>{active.secondaryButton.label}</Link>
+              </Button>
+            ) : null}
           </div>
         </div>
-        <div className="relative w-full aspect-[1/1] overflow-hidden rounded-xl">
-          <Image src="/product images/AExSYDNEYSWEENEY_9.webp" alt="Hero" fill className="object-cover" />
-        </div>
       </div>
+
+      {count > 1 ? (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 z-10 hidden -translate-y-1/2 items-center justify-between px-4 md:flex md:px-6">
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Previous slide"
+              className="pointer-events-auto text-foreground/50 transition hover:text-foreground"
+            >
+              <ChevronLeft className="h-8 w-8 stroke-[1.25]" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Next slide"
+              className="pointer-events-auto text-foreground/50 transition hover:text-foreground"
+            >
+              <ChevronRight className="h-8 w-8 stroke-[1.25]" />
+            </button>
+          </div>
+
+          <div
+            className="absolute inset-x-0 bottom-[calc(6.25rem+env(safe-area-inset-bottom))] z-10 flex items-center justify-center gap-2 md:bottom-8"
+            role="tablist"
+            aria-label="Hero slides"
+          >
+            {slides.map((slide, i) => {
+              const isActive = i === safeIndex;
+              return (
+                <button
+                  key={slide.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-label={`Slide ${i + 1}`}
+                  onClick={() => goTo(i)}
+                  className={cn(
+                    "relative overflow-hidden rounded-full bg-foreground/30 transition-all",
+                    isActive ? "h-1.5 w-8 sm:w-10" : "h-1.5 w-1.5",
+                  )}
+                >
+                  {isActive ? (
+                    <span
+                      className="absolute inset-y-0 left-0 rounded-full bg-foreground"
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }
-
-

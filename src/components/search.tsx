@@ -1,183 +1,317 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Search as SearchIcon, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { products } from "@/data/mock-data";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Search as SearchIcon, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import type { Product } from "@/types";
+import { cn } from "@/lib/utils";
 
-export function Search() {
+type SearchHit = Pick<Product, "id" | "name" | "brand" | "price" | "images">;
+
+type Props = {
+  /** `icon` for header; `panel` for dedicated search page. */
+  variant?: "icon" | "panel";
+  className?: string;
+};
+
+export function Search({ variant = "icon", className }: Props) {
+  const router = useRouter();
+  const [open, setOpen] = useState(variant === "panel");
   const [query, setQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-  const [results, setResults] = useState<typeof products>([]);
+  const [results, setResults] = useState<SearchHit[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+    if (!open) return;
+    const t = window.setTimeout(() => inputRef.current?.focus(), 40);
+    return () => window.clearTimeout(t);
+  }, [open]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen(true);
       }
     };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
-    if (query.trim().length > 0) {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(query.toLowerCase()) ||
-          product.brand.toLowerCase().includes(query.toLowerCase()) ||
-          product.category.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered.slice(0, 6));
-      setIsOpen(true);
-      setSelectedIndex(-1); // Reset selection when results change
-    } else {
+    const q = query.trim();
+    if (!q) {
       setResults([]);
-      setIsOpen(false);
+      setLoading(false);
       setSelectedIndex(-1);
+      return;
     }
+
+    const controller = new AbortController();
+    setLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({
+          limit: "8",
+          depth: "1",
+          locale: "en",
+          "where[and][0][_status][equals]": "published",
+          "where[and][1][or][0][title][contains]": q,
+          "where[and][1][or][1][slug][contains]": q,
+        });
+        const res = await fetch(`/api/products?${params}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("search failed");
+        const json = (await res.json()) as {
+          docs?: Array<{
+            id: string | number;
+            title?: string;
+            prices?: { usd?: number };
+            brand?: { name?: string } | number | null;
+            images?: Array<{ url?: string } | number>;
+          }>;
+        };
+
+        const mapped: SearchHit[] = (json.docs || []).map((doc) => {
+          const brand =
+            typeof doc.brand === "object" && doc.brand ? doc.brand.name || "" : "";
+          const images = (doc.images || [])
+            .map((img) => (typeof img === "object" && img?.url ? img.url : null))
+            .filter(Boolean) as string[];
+          return {
+            id: String(doc.id),
+            name: doc.title || "",
+            brand,
+            price: Number(doc.prices?.usd ?? 0),
+            images: images.length ? images : ["/product images/man.jpg"],
+          };
+        });
+
+        setResults(mapped);
+        setSelectedIndex(-1);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
   }, [query]);
 
-  // Auto-scroll selected item into view
   useEffect(() => {
-    if (selectedIndex >= 0 && resultsRef.current) {
-      const selectedElement = resultsRef.current.children[selectedIndex] as HTMLElement;
-      if (selectedElement) {
-        selectedElement.scrollIntoView({
-          block: "nearest",
-          behavior: "smooth"
-        });
-      }
-    }
+    if (selectedIndex < 0 || !resultsRef.current) return;
+    const selected = resultsRef.current.children[selectedIndex] as HTMLElement | undefined;
+    selected?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
+  const goToResult = (product: SearchHit) => {
+    setOpen(false);
+    setQuery("");
+    router.push(`/product/${product.id}`);
+  };
+
+  const goToShop = () => {
+    const q = query.trim();
+    if (!q) return;
+    setOpen(false);
+    router.push(`/shop?search=${encodeURIComponent(q)}`);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen || results.length === 0) return;
-
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : prev));
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < results.length) {
-          // Navigate to selected product
-          window.location.href = `/product/${results[selectedIndex].id}`;
-        } else if (query.trim()) {
-          // Navigate to search results
-          window.location.href = `/shop?search=${encodeURIComponent(query)}`;
-        }
-        break;
-      case "Escape":
-        setIsOpen(false);
-        setSelectedIndex(-1);
-        inputRef.current?.blur();
-        break;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!results.length) return;
+      setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : prev));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && results[selectedIndex]) {
+        goToResult(results[selectedIndex]);
+      } else {
+        goToShop();
+      }
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedIndex >= 0 && selectedIndex < results.length) {
-      // Navigate to selected product
-      window.location.href = `/product/${results[selectedIndex].id}`;
-    } else if (query.trim()) {
-      // Navigate to shop page with search query
-      window.location.href = `/shop?search=${encodeURIComponent(query)}`;
-    }
-  };
-
-  return (
-    <div className="relative flex-1 max-w-md" ref={searchRef}>
-      <form onSubmit={handleSearch} className="relative">
-        <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+  const panel = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <form
+        className="relative border-b px-3 py-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          goToShop();
+        }}
+      >
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-6 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           ref={inputRef}
-          type="text"
-          placeholder="Search products..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="pl-10 pr-10"
+          placeholder="Search products…"
+          className="h-11 border-0 bg-transparent pr-10 pl-10 shadow-none focus-visible:ring-0"
+          autoComplete="off"
         />
-        {query && (
+        {query ? (
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+            className="absolute top-1/2 right-4 h-8 w-8 -translate-y-1/2"
             onClick={() => setQuery("")}
+            aria-label="Clear search"
           >
             <X className="h-4 w-4" />
           </Button>
-        )}
+        ) : null}
       </form>
 
-      {/* Search Results Dropdown */}
-      {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-50 max-h-96 flex flex-col">
-          <div ref={resultsRef} className="overflow-y-auto flex-1">
-            {results.map((product, index) => (
-              <Link
-                key={product.id}
-                href={`/product/${product.id}`}
-                className={`relative flex items-center gap-3 p-3 transition-colors ${
-                  index === selectedIndex
-                    ? "bg-primary/10 before:absolute before:left-0 before:h-4 before:w-1 before:rounded-r-md before:bg-primary before:content-['']"
-                    : "hover:bg-muted/50"
-                }`}
-                onClick={() => setIsOpen(false)}
-                onMouseEnter={() => setSelectedIndex(index)}
-              >
-                <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted flex-shrink-0">
-                  <Image
-                    src={product.images[0]}
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">{product.brand}</p>
-                  <p className="text-sm font-semibold">${product.price}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-          <div className="border-t p-2 bg-background flex-shrink-0">
-            <Link
-              href={`/shop?search=${encodeURIComponent(query)}`}
-              className="text-sm text-primary hover:underline block text-center"
-              onClick={() => setIsOpen(false)}
-            >
-              View all results ({results.length})
-            </Link>
-          </div>
-        </div>
-      )}
+      <div ref={resultsRef} className="max-h-[min(60vh,28rem)] flex-1 overflow-y-auto p-2">
+        {!query.trim() && (
+          <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+            Type to find pieces — or press{" "}
+            <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium">↵</kbd>{" "}
+            to browse the shop.
+          </p>
+        )}
 
-      {/* No Results */}
-      {isOpen && query.trim().length > 0 && results.length === 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-50 p-4">
-          <p className="text-sm text-muted-foreground text-center">
+        {query.trim() && loading && (
+          <p className="px-3 py-8 text-center text-sm text-muted-foreground">Searching…</p>
+        )}
+
+        {query.trim() && !loading && results.length === 0 && (
+          <p className="px-3 py-8 text-center text-sm text-muted-foreground">
             No products found for &quot;{query}&quot;
           </p>
+        )}
+
+        {results.map((product, index) => (
+          <button
+            key={product.id}
+            type="button"
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+              index === selectedIndex ? "bg-muted" : "hover:bg-muted/70",
+            )}
+            onClick={() => goToResult(product)}
+            onMouseEnter={() => setSelectedIndex(index)}
+          >
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+              <Image
+                src={product.images[0]}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="48px"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{product.name}</p>
+              {product.brand ? (
+                <p className="truncate text-xs text-muted-foreground">{product.brand}</p>
+              ) : null}
+            </div>
+            <p className="shrink-0 text-sm font-medium">${product.price.toFixed(2)}</p>
+          </button>
+        ))}
+      </div>
+
+      {query.trim() ? (
+        <div className="border-t px-3 py-2">
+          <button
+            type="button"
+            onClick={goToShop}
+            className="w-full rounded-lg px-3 py-2 text-center text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            View all results for &quot;{query.trim()}&quot;
+          </button>
         </div>
-      )}
+      ) : null}
     </div>
+  );
+
+  if (variant === "panel") {
+    return (
+      <div
+        className={cn(
+          "overflow-hidden rounded-2xl border border-border/60 bg-background/80 shadow-sm backdrop-blur-xl",
+          className,
+        )}
+      >
+        {panel}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          setQuery("");
+          setResults([]);
+          setSelectedIndex(-1);
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Search products"
+          className={className}
+        >
+          <SearchIcon className="h-5 w-5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        showCloseButton={false}
+        className="top-[12%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-lg"
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Search products</DialogTitle>
+          <DialogDescription>Find products by name or brand.</DialogDescription>
+        </DialogHeader>
+        {panel}
+        <div className="flex items-center justify-between border-t px-4 py-2 text-[11px] text-muted-foreground">
+          <span>
+            <kbd className="rounded border bg-muted px-1 py-0.5 font-medium">↑↓</kbd> navigate
+          </span>
+          <span>
+            <kbd className="rounded border bg-muted px-1 py-0.5 font-medium">esc</kbd> close
+          </span>
+          <span>
+            <kbd className="rounded border bg-muted px-1 py-0.5 font-medium">⌘K</kbd> open
+          </span>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -6,6 +6,7 @@ import type {
   ToastActionElement,
   ToastProps,
 } from "@/components/ui/toast"
+import { playFeedbackSound, type FeedbackSound } from "@/lib/feedback-sounds"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -16,6 +17,8 @@ type ToasterToast = ToastProps & {
   description?: React.ReactNode
   action?: ToastActionElement
   icon?: React.ReactNode
+  /** Override auto sound; false skips audio. */
+  sound?: FeedbackSound | true
 }
 
 const actionTypes = {
@@ -142,8 +145,19 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+function resolveSound(
+  variant: ToastProps["variant"] | undefined,
+  sound: Toast["sound"],
+): FeedbackSound {
+  if (sound === false) return false
+  if (sound === "success" || sound === "error") return sound
+  return variant === "destructive" ? "error" : "success"
+}
+
+function toast({ sound = true, ...props }: Toast) {
   const id = genId()
+
+  playFeedbackSound(resolveSound(props.variant, sound))
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -170,6 +184,12 @@ function toast({ ...props }: Toast) {
     update,
   }
 }
+
+toast.success = (props: Omit<Toast, "variant" | "sound">) =>
+  toast({ ...props, variant: "default", sound: "success" })
+
+toast.error = (props: Omit<Toast, "variant" | "sound">) =>
+  toast({ ...props, variant: "destructive", sound: "error" })
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)

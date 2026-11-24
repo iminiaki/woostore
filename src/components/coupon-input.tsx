@@ -3,114 +3,106 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { X, Check, AlertCircle } from "lucide-react";
+import { announceCouponApplied } from "@/components/coupon-confetti";
 import { useCart } from "@/components/cart-store";
-import type { Coupon } from "@/types";
+import { playErrorSound } from "@/lib/feedback-sounds";
 
 interface CouponInputProps {
   subtotal: number;
+  email?: string;
   className?: string;
+  /** Fired when a coupon is accepted — use to celebrate in the order summary box. */
+  onApplied?: () => void;
 }
 
-// Mock coupon data - in a real app, this would come from your backend
-const mockCoupons: Coupon[] = [
-  {
-    code: "SAVE10",
-    type: "percentage",
-    value: 10,
-    minAmount: 50,
-    maxDiscount: 100,
-    validFrom: new Date("2024-01-01"),
-    validTo: new Date("20261-12-31"),
-    usageLimit: 1000,
-    usedCount: 500,
-    description: "Save 10% on orders over $50"
-  },
-  {
-    code: "FREESHIP",
-    type: "fixed",
-    value: 15,
-    minAmount: 100,
-    validFrom: new Date("2024-01-01"),
-    validTo: new Date("2025-12-31"),
-    usageLimit: 500,
-    usedCount: 200,
-    description: "Free shipping on orders over $100"
-  },
-  {
-    code: "WELCOME20",
-    type: "percentage",
-    value: 20,
-    minAmount: 30,
-    maxDiscount: 50,
-    validFrom: new Date("2024-01-01"),
-    validTo: new Date("2025-12-31"),
-    usageLimit: 200,
-    usedCount: 50,
-    description: "Welcome discount - 20% off"
-  }
-];
-
-export function CouponInput({ subtotal, className = "" }: CouponInputProps) {
+export function CouponInput({
+  subtotal,
+  email,
+  className = "",
+  onApplied,
+}: CouponInputProps) {
   const [couponCode, setCouponCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const { state, dispatch } = useCart();
 
-  const validateAndApplyCoupon = (code: string) => {
-    const coupon = mockCoupons.find(c => c.code.toUpperCase() === code.toUpperCase());
-    if (!coupon) {
-      setError("Invalid coupon code");
-      return;
-    }
-
-    // Validate coupon
-    const now = new Date();
-    if (now < coupon.validFrom || now > coupon.validTo) {
-      setError("Coupon has expired or is not yet valid");
-      return;
-    }
-
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      setError("Coupon usage limit reached");
-      return;
-    }
-
-    if (coupon.minAmount && subtotal < coupon.minAmount) {
-      setError(`Minimum order amount of $${coupon.minAmount} required`);
-      return;
-    }
-
-    // Calculate discount
-    let discountAmount = 0;
-    if (coupon.type === "percentage") {
-      discountAmount = (subtotal * coupon.value) / 100;
-      if (coupon.maxDiscount) {
-        discountAmount = Math.min(discountAmount, coupon.maxDiscount);
-      }
-    } else {
-      discountAmount = coupon.value;
-    }
-
-    const finalPrice = subtotal - discountAmount;
-
-    // Apply coupon to cart
-    dispatch({ 
-      type: "applyCoupon", 
-      coupon: {
-        coupon,
-        discountAmount,
-        finalPrice
-      }
-    });
-
+  const validateAndApplyCoupon = async (code: string) => {
+    setLoading(true);
     setError(null);
-    setCouponCode("");
+    try {
+      const res = await fetch("/api/store/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          email,
+          lines: state.items.map((item) => ({
+            productId: item.productId,
+            categoryId: undefined,
+            quantity: item.quantity,
+            unitPrice: item.variantPrice,
+            onSale: Boolean(
+              item.product.originalPrice && item.product.originalPrice > item.variantPrice,
+            ),
+          })),
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        discountAmount?: number;
+        freeShipping?: boolean;
+        finalPrice?: number;
+        coupon?: {
+          id: string;
+          code: string;
+          type: "percentage" | "fixed" | "free_shipping";
+          value: number;
+          description?: string;
+          maxDiscount?: number;
+        };
+      };
+
+      if (!res.ok || !data.coupon) {
+        playErrorSound();
+        setError(data.error || "Invalid coupon code");
+        return;
+      }
+
+      dispatch({
+        type: "applyCoupon",
+        coupon: {
+          coupon: {
+            id: data.coupon.id,
+            code: data.coupon.code,
+            type: data.coupon.type,
+            value: data.coupon.value,
+            description: data.coupon.description,
+            maxDiscount: data.coupon.maxDiscount,
+            freeShipping: data.freeShipping,
+            usedCount: 0,
+            validFrom: new Date(0),
+            validTo: new Date("9999-12-31"),
+          },
+          discountAmount: data.discountAmount || 0,
+          finalPrice: data.finalPrice ?? Math.max(0, subtotal - (data.discountAmount || 0)),
+          freeShipping: data.freeShipping,
+        },
+      });
+      setCouponCode("");
+      announceCouponApplied();
+      onApplied?.();
+    } catch {
+      playErrorSound();
+      setError("Failed to validate coupon");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleApplyCoupon = () => {
-    if (!couponCode.trim()) return;
-    validateAndApplyCoupon(couponCode.trim());
+    if (!couponCode.trim() || loading) return;
+    void validateAndApplyCoupon(couponCode.trim());
   };
 
   const handleRemoveCoupon = () => {
@@ -137,7 +129,8 @@ export function CouponInput({ subtotal, className = "" }: CouponInputProps) {
                   Coupon applied: {state.appliedCoupon.coupon.code}
                 </p>
                 <p className="text-xs text-green-600">
-                  {state.appliedCoupon.coupon.description}
+                  {state.appliedCoupon.coupon.description ||
+                    (state.appliedCoupon.freeShipping ? "Free shipping" : "Discount applied")}
                 </p>
               </div>
             </div>
@@ -160,13 +153,14 @@ export function CouponInput({ subtotal, className = "" }: CouponInputProps) {
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
               onKeyPress={handleKeyPress}
               className="flex-1"
+              disabled={loading}
             />
             <Button
               onClick={handleApplyCoupon}
-              disabled={!couponCode.trim()}
+              disabled={!couponCode.trim() || loading}
               size="sm"
             >
-              Apply
+              {loading ? "…" : "Apply"}
             </Button>
           </div>
           {error && (

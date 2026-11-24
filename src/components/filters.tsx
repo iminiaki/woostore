@@ -13,8 +13,26 @@ import { Separator } from "@/components/ui/separator";
 import { X } from "lucide-react";
 import type { SortOption } from "@/types";
 
-type Group = { key: string; title: string; options: string[] };
+type Group = {
+  key: string;
+  title: string;
+  kind?: "brand" | "attribute";
+  attributeType?: "select" | "color" | "button";
+  options: string[];
+  optionValues?: string[];
+  optionHex?: (string | null)[];
+};
 type Option = { label: string; value: string };
+
+function groupEntries(
+  g: Group,
+): Array<{ label: string; value: string; hex?: string | null }> {
+  return g.options.map((label, i) => ({
+    label,
+    value: g.optionValues?.[i] ?? label,
+    hex: g.optionHex?.[i] ?? null,
+  }));
+}
 
 export function Filters({ 
   groups, 
@@ -103,15 +121,17 @@ export function Filters({
         });
     }
 
-    // other groups
+    // other groups (brand + dynamic attributes)
     groups.forEach((group) => {
       const values = params.get(group.key);
       if (values) {
+        const entries = groupEntries(group);
         values
           .split(',')
           .filter(Boolean)
           .forEach((value) => {
-            filters.push({ key: group.key, value, label: value, type: 'category' });
+            const label = entries.find((e) => e.value === value)?.label || value;
+            filters.push({ key: group.key, value, label, type: 'category' });
           });
       }
     });
@@ -329,13 +349,30 @@ export function Filters({
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-3">
-                  {g.options.map((opt) => {
+                  {groupEntries(g).map(({ label, value, hex }) => {
                     const values = new Set((params.get(g.key)?.split(",") || []).filter(Boolean));
-                    const checked = values.has(opt);
+                    const checked = values.has(value);
+                    const showSwatch =
+                      g.attributeType === "color" &&
+                      typeof hex === "string" &&
+                      /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hex);
                     return (
-                      <div className="flex items-center gap-2" key={opt}>
-                        <Checkbox id={`${g.key}-${opt}`} checked={checked} onCheckedChange={() => toggle(g.key, opt)} />
-                        <Label htmlFor={`${g.key}-${opt}`}>{opt}</Label>
+                      <div className="flex items-center gap-2" key={value}>
+                        <Checkbox
+                          id={`${g.key}-${value}`}
+                          checked={checked}
+                          onCheckedChange={() => toggle(g.key, value)}
+                        />
+                        {showSwatch ? (
+                          <span
+                            className="inline-block size-3.5 shrink-0 rounded-full border border-black/15"
+                            style={{ backgroundColor: hex }}
+                            aria-hidden
+                          />
+                        ) : null}
+                        <Label htmlFor={`${g.key}-${value}`} className="capitalize">
+                          {label}
+                        </Label>
                       </div>
                     );
                   })}

@@ -1,27 +1,26 @@
 import { ReadonlyURLSearchParams } from "next/navigation";
 
-export function countActiveFilters(params: ReadonlyURLSearchParams): number {
+/**
+ * Count active shop filters. Pass dynamic group keys so attribute filters are included.
+ */
+export function countActiveFilters(
+  params: ReadonlyURLSearchParams,
+  groupKeys: string[] = [],
+): number {
   let count = 0;
-  
-  // Count filter groups (brand, material, color, size)
-  const filterKeys = ['brand', 'material', 'color', 'size'];
-  filterKeys.forEach(key => {
+
+  for (const key of groupKeys) {
     const value = params.get(key);
-    if (value) {
-      count += value.split(',').filter(Boolean).length;
-    }
-  });
-  // Count category and subCategory if present
-  if (params.get('category')) count += 1;
-  if (params.get('subCategory')) count += 1;
-  
-  // Count price range if it's not at default
-  const minPrice = params.get('minPrice');
-  const maxPrice = params.get('maxPrice');
-  if (minPrice || maxPrice) {
-    count += 1; // Count price as one filter
+    if (!value) continue;
+    count += value.split(",").filter(Boolean).length;
   }
-  
+
+  if (params.get("category")) count += 1;
+
+  const subs = params.get("subCategory");
+  if (subs) count += subs.split(",").filter(Boolean).length;
+
+  if (params.get("minPrice") || params.get("maxPrice")) count += 1;
+
   return count;
 }
-

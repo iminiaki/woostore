@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lastore
 
-## Getting Started
+Next.js storefront + Payload CMS 3 admin for a multilingual (`fa`/`en`), multicurrency (`IRT`/`USD`) fashion store.
 
-First, run the development server:
+## Prerequisites
+
+- Node.js `^22.23.5 || ^24.22.3 || >=26.13.1` (Payload requirement)
+- Docker Desktop (PostgreSQL)
+
+## Quick start
 
 ```bash
+# 1. Start Postgres (host port 5433 → container 5432)
+npm run db:up
+
+# 2. Install deps (first time)
+npm install --legacy-peer-deps
+
+# 3. Copy env if needed
+cp .env.example .env
+
+# 4. Seed admin users + catalog from mock data
+npm run seed
+
+# 5. Dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Storefront: [http://localhost:3000](http://localhost:3000)
+- Admin: [http://localhost:3000/admin](http://localhost:3000/admin)
+- REST API: [http://localhost:3000/api/products](http://localhost:3000/api/products)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Seeded logins
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Role         | Email                   | Password    |
+|--------------|-------------------------|-------------|
+| Admin        | `admin@lastore.local`   | `Admin123!` |
+| Shop Manager | `manager@lastore.local` | `Manager123!` |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+| Script | Purpose |
+|--------|---------|
+| `npm run db:up` | Start Postgres via Docker Compose |
+| `npm run db:down` | Stop Postgres |
+| `npm run seed` | Seed users, settings, catalog from `src/data/mock-data.ts` |
+| `npm run generate:types` | Regenerate `src/payload-types.ts` |
+| `npm run generate:importmap` | Regenerate admin import map |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture (Phase 1)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Payload 3** embedded in this Next.js app (`/admin` + `/api`)
+- **PostgreSQL** in Docker (`localhost:5433`)
+- **Local media** in `/media` (swap to S3/R2 later via Payload storage adapter)
+- **Roles:** `admin` (full) · `shop-manager` (store ops; no Store Settings)
+- **Locales:** `fa` (default), `en`
+- **Currencies:** manual `IRT` + `USD` prices per product/variant (no auto FX for catalog)
 
-## Deploy on Vercel
+## Next phases
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Customers (phone OTP), cart/checkout, shipping (Iran geo), taxes, payments, invoices, inventory movements, reports, notifications, storefront cutover from mock data.

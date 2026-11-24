@@ -54,6 +54,13 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
 export function useWishlist() {
   const ctx = useContext(WishlistContext);
-  if (!ctx) throw new Error("useWishlist must be used within WishlistProvider");
+  // Safe fallback for SSR / partial prerender when provider isn't mounted yet
+  if (!ctx) {
+    return {
+      state: { items: [] as Product[] },
+      dispatch: (() => undefined) as React.Dispatch<WishlistAction>,
+      isInWishlist: () => false,
+    };
+  }
   return ctx;
 }

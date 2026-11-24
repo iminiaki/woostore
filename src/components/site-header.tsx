@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ShoppingBag, User2 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useCart } from "./cart-store";
@@ -8,62 +11,113 @@ import { useAuth } from "./auth-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "./search";
-import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/shop", label: "Shop" },
-  { href: "/blog", label: "Blog" },
+  // { href: "/blog", label: "Blog" }, // temporarily hidden
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+  const [scrolled, setScrolled] = useState(false);
   const { totalQuantity } = useCart();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY || document.documentElement.scrollTop || 0;
+      setScrolled(y > 16);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Home at top: clear glass. Otherwise / scrolled: solid frosted dock.
+  const clearGlass = isHome && !scrolled;
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-7xl items-center px-4">
-        {/* Left side - Logo and Navigation */}
-        <div className="flex items-center gap-12 flex-1">
-          <Link href="/" className="font-semibold text-lg">
-            <Image src="/logo_dark.png" alt="Lastore" width={100} height={100} className="block dark:hidden" />
-            <Image src="/logo_light.png" alt="Lastore" width={100} height={100} className="hidden dark:block" />
-          </Link>
-          <nav className="hidden gap-6 md:flex">
-            {nav.map((item) => (
-              <Link key={item.href} href={item.href} className="text-sm text-muted-foreground hover:text-foreground">
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+    <>
+      <header
+        className={cn(
+          "fixed inset-x-0 top-0 z-50 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-[padding] duration-300 md:px-4",
+          clearGlass ? "md:px-0 md:pt-0" : "",
+        )}
+      >
+        <div
+          className={cn(
+            "mx-auto flex h-14 max-w-7xl items-center px-3 transition-[background-color,box-shadow,border-radius,backdrop-filter,border-color,height] duration-300 sm:h-16 sm:px-4",
+            clearGlass
+              ? "rounded-2xl border border-white/15 bg-background/25 shadow-none backdrop-blur-xl supports-[backdrop-filter]:bg-background/20 md:rounded-none md:border-transparent md:bg-transparent md:backdrop-blur-none md:supports-[backdrop-filter]:bg-transparent"
+              : "rounded-2xl border border-white/25 bg-background/65 shadow-[0_8px_30px_rgba(0,0,0,0.08)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/50 dark:border-white/10 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]",
+          )}
+        >
+          <div className="flex flex-1 items-center gap-8 md:gap-12">
+            <Link href="/" className="flex items-center" aria-label="Lastore home">
+              <Image
+                src="/logo_dark.png"
+                alt="Lastore"
+                width={36}
+                height={36}
+                priority
+                className="block h-8 w-8 dark:hidden sm:h-9 sm:w-9"
+              />
+              <Image
+                src="/logo_light.png"
+                alt="Lastore"
+                width={36}
+                height={36}
+                priority
+                className="hidden h-8 w-8 dark:block sm:h-9 sm:w-9"
+              />
+            </Link>
+            <nav className="hidden gap-6 md:flex">
+              {nav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm text-black transition-opacity hover:opacity-70 dark:text-white"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="flex items-center justify-end gap-0.5 sm:gap-2">
+            <Search />
+            <Link
+              href={isAuthenticated ? "/profile" : "/auth/login"}
+              aria-label="Profile"
+              className="hidden md:block"
+            >
+              <Button variant="ghost" size="icon">
+                <User2 className="h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="/cart" className="relative" aria-label="Cart">
+              <Button variant="ghost" size="icon">
+                <ShoppingBag className="h-5 w-5" />
+              </Button>
+              {totalQuantity > 0 && (
+                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                  {totalQuantity}
+                </Badge>
+              )}
+            </Link>
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
+          </div>
         </div>
-        
-        {/* Center - Search Bar */}
-        <div className="hidden md:flex justify-center flex-1">
-          <Search />
-        </div>
-        
-        {/* Right side - User actions */}
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          <Link href={isAuthenticated ? "/profile" : "/auth/login"} aria-label="Profile" className="hidden md:block">
-            <Button variant="ghost" size="icon">
-              <User2 className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link href="/cart" className="relative" aria-label="Cart">
-            <Button variant="ghost" size="icon">
-              <ShoppingBag className="h-5 w-5" />
-            </Button>
-            {totalQuantity > 0 && (
-              <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
-                {totalQuantity}
-              </Badge>
-            )}
-          </Link>
-          <ThemeToggle />
-        </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Spacer: home overlays hero; other pages clear the floating bar */}
+      <div className={cn(isHome ? "h-0" : "h-[4.5rem] sm:h-[4.75rem]")} aria-hidden />
+    </>
   );
 }
