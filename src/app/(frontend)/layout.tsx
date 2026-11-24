@@ -24,7 +24,10 @@ const geistMono = Geist_Mono({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: "cover",
+  // Avoid solid black theme-color — it fights black-translucent on iOS.
+  themeColor: "#0a0a0a",
 };
 
 export const metadata: Metadata = {
@@ -37,13 +40,19 @@ export const metadata: Metadata = {
     icon: [
       { url: "/favicon-light.png", media: "(prefers-color-scheme: light)", type: "image/png" },
       { url: "/favicon-dark.png", media: "(prefers-color-scheme: dark)", type: "image/png" },
-      { url: "/favicon.png", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", type: "image/png" }],
+    // Opaque dark plate + white mark so the icon stays visible with iOS Dark/Tinted home-screen icons.
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: {
     capable: true,
+    title: "Lastore",
     statusBarStyle: "black-translucent",
+  },
+  other: {
+    // Next 16 may omit the Apple-prefixed tag; iOS needs it for translucent status bar.
+    "apple-mobile-web-app-capable": "yes",
+    "mobile-web-app-capable": "yes",
   },
 };
 

@@ -7,6 +7,8 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const nextConfig: NextConfig = {
+  // Allow iPhone testing over LAN during next dev
+  allowedDevOrigins: ["192.168.1.96", "127.0.0.1", "localhost"],
   experimental: {
     // Required for custom 404 with multiple root layouts ((frontend) + (payload))
     globalNotFound: true,

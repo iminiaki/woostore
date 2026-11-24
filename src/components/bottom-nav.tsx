@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, User, ShoppingBag } from "lucide-react";
+import { useStandalone } from "@/hooks/use-standalone";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -18,9 +19,19 @@ const DECK_PAD = "0.375rem";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const standalone = useStandalone();
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 md:hidden"
+      style={{
+        // Home-screen: pin near the physical bottom (home indicator overlays the gap).
+        // Safari: keep clear of the home indicator.
+        paddingBottom: standalone
+          ? "0.4rem"
+          : "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+      }}
+    >
       <nav
         style={{ borderRadius: DECK_RADIUS, padding: DECK_PAD }}
         className="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-1 border border-white/20 bg-background/55 shadow-[0_8px_32px_rgba(0,0,0,0.12)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/40 dark:border-white/10 dark:shadow-[0_8px_32px_rgba(0,0,0,0.45)]"

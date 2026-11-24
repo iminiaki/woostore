@@ -116,7 +116,24 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Allow painting into iOS unsafe areas (with viewport-fit=cover) */
+    min-height: 100%;
+    min-height: 100dvh;
+  }
   body {
     @apply bg-background text-foreground;
+    min-height: 100%;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+}
+
+@keyframes hero-progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
   }
 }

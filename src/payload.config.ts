@@ -37,7 +37,7 @@ export default buildConfig({
       afterNavLinks: ['@/components/admin/ReportsNavLink#ReportsNavLink'],
       views: {
         reports: {
-          Component: '@/components/admin/ReportsView#ReportsView',
+          Component: '@/components/admin/ReportsPage#ReportsPage',
           path: '/reports',
           exact: true,
           meta: {

@@ -10,18 +10,17 @@ import type { HeroSlide } from "@/types";
 import { cn } from "@/lib/utils";
 
 const INTERVAL_MS = 5500;
-const SWIPE_THRESHOLD = 40;
+const SWIPE_THRESHOLD = 48;
 
 export function HomeHero({ slides }: { slides: HeroSlide[] }) {
   const [index, setIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const elapsedRef = useRef(0);
-  const rafRef = useRef(0);
-  const anchorRef = useRef(0);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const touchDelta = useRef({ x: 0, y: 0 });
+  const [progressOn, setProgressOn] = useState(true);
   const sectionRef = useRef<HTMLElement>(null);
+  const swipeRef = useRef<{
+    x: number;
+    y: number;
+    axis: "h" | "v" | null;
+  } | null>(null);
 
   const count = slides.length;
   const safeIndex = count > 0 ? ((index % count) + count) % count : 0;
@@ -31,53 +30,35 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
     (next: number) => {
       if (count <= 1) return;
       const target = ((next % count) + count) % count;
-      elapsedRef.current = 0;
-      setProgress(0);
       setIndex(target);
+      setProgressOn(false);
+      requestAnimationFrame(() => setProgressOn(true));
     },
     [count],
   );
 
   const goPrev = useCallback(() => {
     if (count <= 1) return;
-    elapsedRef.current = 0;
-    setProgress(0);
     setIndex((current) => ((current - 1) % count + count) % count);
+    setProgressOn(false);
+    requestAnimationFrame(() => setProgressOn(true));
   }, [count]);
 
   const goNext = useCallback(() => {
     if (count <= 1) return;
-    elapsedRef.current = 0;
-    setProgress(0);
     setIndex((current) => (current + 1) % count);
+    setProgressOn(false);
+    requestAnimationFrame(() => setProgressOn(true));
   }, [count]);
 
+  // Autoplay via timeout — more reliable than rAF on iOS
   useEffect(() => {
-    if (count <= 1 || paused) return;
-
-    elapsedRef.current = 0;
-    setProgress(0);
-    anchorRef.current = performance.now();
-
-    const tick = (now: number) => {
-      const elapsed = elapsedRef.current + (now - anchorRef.current);
-      anchorRef.current = now;
-
-      if (elapsed >= INTERVAL_MS) {
-        elapsedRef.current = 0;
-        setProgress(0);
-        setIndex((current) => (current + 1) % count);
-        return;
-      }
-
-      elapsedRef.current = elapsed;
-      setProgress(elapsed / INTERVAL_MS);
-      rafRef.current = window.requestAnimationFrame(tick);
-    };
-
-    rafRef.current = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafRef.current);
-  }, [safeIndex, count, paused]);
+    if (count <= 1 || !progressOn) return;
+    const id = window.setTimeout(() => {
+      setIndex((current) => (current + 1) % count);
+    }, INTERVAL_MS);
+    return () => window.clearTimeout(id);
+  }, [safeIndex, count, progressOn]);
 
   useEffect(() => {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -116,46 +97,68 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
     return () => ctx.revert();
   }, [safeIndex]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    if (!t) return;
-    touchStart.current = { x: t.clientX, y: t.clientY };
-    touchDelta.current = { x: 0, y: 0 };
-    setPaused(true);
-  };
+  // Native touch listeners so horizontal swipe wins over scroll when intentional
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || count <= 1) return;
 
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const t = e.touches[0];
-    if (!t) return;
-    touchDelta.current = {
-      x: t.clientX - touchStart.current.x,
-      y: t.clientY - touchStart.current.y,
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      swipeRef.current = { x: t.clientX, y: t.clientY, axis: null };
     };
-  };
 
-  const onTouchEnd = () => {
-    const { x, y } = touchDelta.current;
-    const horizontal = Math.abs(x) > Math.abs(y) * 1.15;
-    if (horizontal && Math.abs(x) >= SWIPE_THRESHOLD) {
-      if (x < 0) goNext();
+    const onMove = (e: TouchEvent) => {
+      const s = swipeRef.current;
+      const t = e.touches[0];
+      if (!s || !t) return;
+      const dx = t.clientX - s.x;
+      const dy = t.clientY - s.y;
+      if (!s.axis) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        s.axis = Math.abs(dx) > Math.abs(dy) * 1.1 ? "h" : "v";
+      }
+      if (s.axis === "h") {
+        e.preventDefault();
+      }
+    };
+
+    const onEnd = (e: TouchEvent) => {
+      const s = swipeRef.current;
+      swipeRef.current = null;
+      if (!s || s.axis !== "h") return;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - s.x;
+      if (Math.abs(dx) < SWIPE_THRESHOLD) return;
+      if (dx < 0) goNext();
       else goPrev();
-    }
-    touchStart.current = null;
-    touchDelta.current = { x: 0, y: 0 };
-    setPaused(false);
-  };
+    };
+
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: true });
+    el.addEventListener("touchcancel", onEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, [count, goNext, goPrev]);
 
   if (!active) return null;
 
   return (
     <section
       ref={sectionRef}
-      className="relative isolate min-h-[100dvh] overflow-hidden"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      onTouchCancel={onTouchEnd}
+      className="relative isolate min-h-[100dvh] touch-pan-y overflow-hidden md:min-h-[100dvh]"
+      style={{
+        // Bleed behind iOS status bar + home indicator (needs apple-mobile-web-app-capable + black-translucent).
+        marginTop: "calc(-1 * env(safe-area-inset-top, 0px))",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        minHeight: "calc(100dvh + env(safe-area-inset-top, 0px))",
+      }}
     >
       <div className="absolute inset-0 -z-10">
         {slides.map((slide, i) => (
@@ -180,17 +183,17 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
               alt=""
               fill
               priority={i === 0}
-              className="block object-cover object-[center_25%] md:hidden"
+              className="block object-cover object-[center_20%] md:hidden"
               sizes="100vw"
             />
           </div>
         ))}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/25 md:hidden" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/20 md:hidden" />
         <div className="absolute inset-0 hidden bg-gradient-to-r from-background/70 via-background/35 to-transparent dark:from-background/75 dark:via-background/40 dark:to-transparent md:block" />
         <div className="absolute inset-0 hidden bg-gradient-to-t from-background/50 via-transparent to-background/15 md:block" />
       </div>
 
-      <div className="mx-auto flex min-h-[100dvh] max-w-7xl items-end px-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] pt-[calc(7rem+env(safe-area-inset-top))] sm:pb-28 md:items-center md:pb-28 md:pt-24">
+      <div className="mx-auto flex min-h-[100dvh] max-w-7xl items-end px-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] pt-[calc(5.5rem+env(safe-area-inset-top))] sm:pb-28 md:items-center md:pb-28 md:pt-24">
         <div className="hero-copy relative z-10 w-full max-w-xl space-y-5 sm:space-y-7">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <Image
@@ -290,14 +293,18 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
                   aria-label={`Slide ${i + 1}`}
                   onClick={() => goTo(i)}
                   className={cn(
-                    "relative overflow-hidden rounded-full bg-foreground/30 transition-all",
+                    "relative overflow-hidden rounded-full bg-foreground/30 transition-[width] duration-300",
                     isActive ? "h-1.5 w-8 sm:w-10" : "h-1.5 w-1.5",
                   )}
                 >
-                  {isActive ? (
+                  {isActive && progressOn ? (
                     <span
+                      key={`fill-${safeIndex}`}
                       className="absolute inset-y-0 left-0 rounded-full bg-foreground"
-                      style={{ width: `${progress * 100}%` }}
+                      style={{
+                        width: "0%",
+                        animation: `hero-progress ${INTERVAL_MS}ms linear forwards`,
+                      }}
                     />
                   ) : null}
                 </button>

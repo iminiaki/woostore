@@ -1,7 +1,14 @@
 'use client'
 
-import { Gutter, SetStepNav } from '@payloadcms/ui'
+import {
+  Banner,
+  Button,
+  Gutter,
+  SetStepNav,
+  useTranslation,
+} from '@payloadcms/ui'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { t } from '@/i18n/admin'
 import {
   Bar,
   BarChart,
@@ -28,6 +35,9 @@ type ReportPayload = {
   customers: { key: string; name: string; orders: number; revenue: number }[]
 }
 
+type Lang = 'en' | 'fa'
+type TabKey = 'overview' | 'products' | 'categories' | 'customers'
+
 function money(n: number) {
   return `$${n.toFixed(2)}`
 }
@@ -42,11 +52,22 @@ function defaultRange() {
   }
 }
 
+function label(key: keyof typeof t, lang: Lang): string {
+  const value = t[key]
+  if (typeof value === 'object' && value !== null && 'en' in value && 'fa' in value) {
+    return (value as { en: string; fa: string })[lang]
+  }
+  return String(key)
+}
+
 export function ReportsView() {
+  const { i18n } = useTranslation()
+  const lang: Lang = i18n.language === 'fa' ? 'fa' : 'en'
+  const reportsLabel = label('reports', lang)
   const initial = useMemo(() => defaultRange(), [])
   const [from, setFrom] = useState(initial.from)
   const [to, setTo] = useState(initial.to)
-  const [tab, setTab] = useState<'overview' | 'products' | 'categories' | 'customers'>('overview')
+  const [tab, setTab] = useState<TabKey>('overview')
   const [data, setData] = useState<ReportPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -68,138 +89,109 @@ export function ReportsView() {
       }
       setData(json)
     } catch {
-      setError('Failed to load reports')
+      setError(lang === 'fa' ? 'بارگذاری گزارش‌ها ناموفق بود' : 'Failed to load reports')
     } finally {
       setLoading(false)
     }
-  }, [from, to])
+  }, [from, to, lang])
 
   useEffect(() => {
     void load()
   }, [load])
 
+  const tabs: { key: TabKey; text: string }[] = [
+    { key: 'overview', text: label('reportsOverview', lang) },
+    { key: 'products', text: label('reportsProducts', lang) },
+    { key: 'categories', text: label('reportsCategories', lang) },
+    { key: 'customers', text: label('reportsCustomers', lang) },
+  ]
+
   return (
-    <div>
-      <SetStepNav nav={[{ label: 'Reports' }]} />
-      <Gutter>
-        <div style={{ display: 'grid', gap: 20, padding: '24px 0 48px' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'end' }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 28 }}>Reports</h1>
-              <p style={{ margin: '6px 0 0', opacity: 0.7 }}>
-                Woo-style sales analytics with custom date range
-              </p>
+    <div className="collection-list reports-view">
+      <SetStepNav nav={[{ label: reportsLabel }]} />
+      <Gutter className="collection-list__wrap">
+        <header className="list-header">
+          <div className="list-header__content">
+            <div className="list-header__title-and-actions">
+              <h1 className="list-header__title">{reportsLabel}</h1>
             </div>
-            <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, alignItems: 'end' }}>
-              <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>
-                From
+            <div className="list-header__actions">
+              <div className="field-type reports-view__date">
+                <label className="field-label" htmlFor="reports-from">
+                  {label('reportsFrom', lang)}
+                </label>
                 <input
+                  id="reports-from"
                   type="date"
                   value={from}
                   onChange={(e) => setFrom(e.target.value)}
-                  style={{ padding: '8px 10px' }}
                 />
-              </label>
-              <label style={{ display: 'grid', gap: 4, fontSize: 13 }}>
-                To
+              </div>
+              <div className="field-type reports-view__date">
+                <label className="field-label" htmlFor="reports-to">
+                  {label('reportsTo', lang)}
+                </label>
                 <input
+                  id="reports-to"
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                  style={{ padding: '8px 10px' }}
                 />
-              </label>
-              <button
-                type="button"
+              </div>
+              <Button
+                buttonStyle="primary"
+                size="small"
                 onClick={() => void load()}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 4,
-                  border: '1px solid var(--theme-elevation-250)',
-                  background: 'var(--theme-elevation-100)',
-                  cursor: 'pointer',
-                }}
+                disabled={loading}
               >
-                {loading ? 'Loading…' : 'Apply'}
-              </button>
+                {loading ? label('reportsLoading', lang) : label('reportsApply', lang)}
+              </Button>
             </div>
           </div>
+          <div className="list-header__after-header-content">
+            <p className="reports-view__desc">{label('reportsDesc', lang)}</p>
+          </div>
+        </header>
 
-          {error && (
-            <div style={{ color: 'var(--theme-error-500)' }}>{error}</div>
-          )}
+        {error ? <Banner type="error">{error}</Banner> : null}
 
-          {data && (
-            <>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                  gap: 12,
-                }}
-              >
-                {[
-                  { label: 'Orders', value: String(data.totals.orders) },
-                  { label: 'Revenue', value: money(data.totals.revenue) },
-                  { label: 'Items sold', value: String(data.totals.itemsSold) },
-                  { label: 'Discounts', value: money(data.totals.discount) },
-                  { label: 'Avg order', value: money(data.totals.averageOrder) },
-                ].map((card) => (
-                  <div
-                    key={card.label}
-                    style={{
-                      border: '1px solid var(--theme-elevation-150)',
-                      borderRadius: 8,
-                      padding: 16,
-                      background: 'var(--theme-elevation-50)',
-                    }}
-                  >
-                    <div style={{ fontSize: 12, opacity: 0.7 }}>{card.label}</div>
-                    <div style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{card.value}</div>
-                  </div>
-                ))}
-              </div>
+        {data ? (
+          <>
+            <div className="reports-view__stats">
+              {[
+                { label: label('reportsOrders', lang), value: String(data.totals.orders) },
+                { label: label('reportsRevenue', lang), value: money(data.totals.revenue) },
+                { label: label('reportsItemsSold', lang), value: String(data.totals.itemsSold) },
+                { label: label('reportsDiscounts', lang), value: money(data.totals.discount) },
+                { label: label('reportsAvgOrder', lang), value: money(data.totals.averageOrder) },
+              ].map((card) => (
+                <div key={card.label} className="reports-view__stat">
+                  <div className="reports-view__stat-label">{card.label}</div>
+                  <div className="reports-view__stat-value">{card.value}</div>
+                </div>
+              ))}
+            </div>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {(
-                  [
-                    ['overview', 'Overview'],
-                    ['products', 'Products'],
-                    ['categories', 'Categories'],
-                    ['customers', 'Customers'],
-                  ] as const
-                ).map(([key, label]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setTab(key)}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 999,
-                      border: '1px solid var(--theme-elevation-250)',
-                      background:
-                        tab === key ? 'var(--theme-elevation-150)' : 'transparent',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {tab === 'overview' && (
-                <div
-                  style={{
-                    border: '1px solid var(--theme-elevation-150)',
-                    borderRadius: 8,
-                    padding: 16,
-                    height: 360,
-                  }}
+            <div className="reports-view__tabs">
+              {tabs.map((item) => (
+                <Button
+                  key={item.key}
+                  buttonStyle={tab === item.key ? 'pill' : 'tab'}
+                  size="small"
+                  onClick={() => setTab(item.key)}
                 >
-                  <h3 style={{ marginTop: 0 }}>Sales over time</h3>
-                  <ResponsiveContainer width="100%" height="85%">
+                  {item.text}
+                </Button>
+              ))}
+            </div>
+
+            {tab === 'overview' ? (
+              <section className="reports-view__panel">
+                <h2 className="reports-view__panel-title">{label('reportsSalesOverTime', lang)}</h2>
+                <div className="reports-view__chart">
+                  <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data.salesByDay}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip />
@@ -213,133 +205,133 @@ export function ReportsView() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              </section>
+            ) : null}
 
-              {tab === 'products' && (
-                <ChartAndTable
-                  title="Sales by product"
-                  chartData={data.products.slice(0, 12)}
-                  rows={data.products}
-                  nameKey="name"
-                />
-              )}
-              {tab === 'categories' && (
-                <ChartAndTable
-                  title="Sales by category"
-                  chartData={data.categories.slice(0, 12)}
-                  rows={data.categories}
-                  nameKey="name"
-                />
-              )}
-              {tab === 'customers' && (
-                <div style={{ display: 'grid', gap: 16 }}>
-                  <div
-                    style={{
-                      border: '1px solid var(--theme-elevation-150)',
-                      borderRadius: 8,
-                      padding: 16,
-                      height: 360,
-                    }}
-                  >
-                    <h3 style={{ marginTop: 0 }}>Top customers</h3>
-                    <ResponsiveContainer width="100%" height="85%">
+            {tab === 'products' ? (
+              <ChartAndTable
+                title={label('reportsByProduct', lang)}
+                chartData={data.products.slice(0, 12)}
+                rows={data.products}
+                lang={lang}
+              />
+            ) : null}
+
+            {tab === 'categories' ? (
+              <ChartAndTable
+                title={label('reportsByCategory', lang)}
+                chartData={data.categories.slice(0, 12)}
+                rows={data.categories}
+                lang={lang}
+              />
+            ) : null}
+
+            {tab === 'customers' ? (
+              <div className="reports-view__stack">
+                <section className="reports-view__panel">
+                  <h2 className="reports-view__panel-title">{label('reportsTopCustomers', lang)}</h2>
+                  <div className="reports-view__chart">
+                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={data.customers.slice(0, 12)}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                        <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={70} />
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 10 }}
+                          interval={0}
+                          angle={-20}
+                          textAnchor="end"
+                          height={70}
+                        />
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip />
                         <Bar dataKey="revenue" fill="var(--theme-success-500, #22c55e)" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                </section>
+                <div className="table">
+                  <table>
                     <thead>
                       <tr>
-                        <th style={th}>Customer</th>
-                        <th style={th}>Orders</th>
-                        <th style={th}>Revenue</th>
+                        <th>{label('reportsCustomer', lang)}</th>
+                        <th>{label('reportsOrders', lang)}</th>
+                        <th>{label('reportsRevenue', lang)}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {data.customers.map((row) => (
                         <tr key={row.key}>
-                          <td style={td}>{row.name}</td>
-                          <td style={td}>{row.orders}</td>
-                          <td style={td}>{money(row.revenue)}</td>
+                          <td>{row.name}</td>
+                          <td>{row.orders}</td>
+                          <td>{money(row.revenue)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </Gutter>
     </div>
   )
-}
-
-const th: React.CSSProperties = {
-  textAlign: 'start',
-  borderBottom: '1px solid var(--theme-elevation-150)',
-  padding: '8px 6px',
-}
-const td: React.CSSProperties = {
-  borderBottom: '1px solid var(--theme-elevation-100)',
-  padding: '8px 6px',
 }
 
 function ChartAndTable({
   title,
   chartData,
   rows,
-  nameKey,
+  lang,
 }: {
   title: string
   chartData: { name: string; quantity: number; revenue: number }[]
   rows: { key: string; name: string; quantity: number; revenue: number }[]
-  nameKey: 'name'
+  lang: Lang
 }) {
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <div
-        style={{
-          border: '1px solid var(--theme-elevation-150)',
-          borderRadius: 8,
-          padding: 16,
-          height: 360,
-        }}
-      >
-        <h3 style={{ marginTop: 0 }}>{title}</h3>
-        <ResponsiveContainer width="100%" height="85%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-            <XAxis dataKey={nameKey} tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={70} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Bar dataKey="revenue" fill="var(--theme-success-500, #22c55e)" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead>
-          <tr>
-            <th style={th}>Name</th>
-            <th style={th}>Qty</th>
-            <th style={th}>Revenue</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key}>
-              <td style={td}>{row.name}</td>
-              <td style={td}>{row.quantity}</td>
-              <td style={td}>{money(row.revenue)}</td>
+    <div className="reports-view__stack">
+      <section className="reports-view__panel">
+        <h2 className="reports-view__panel-title">{title}</h2>
+        <div className="reports-view__chart">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10 }}
+                interval={0}
+                angle={-20}
+                textAnchor="end"
+                height={70}
+              />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="revenue" fill="var(--theme-success-500, #22c55e)" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+      <div className="table">
+        <table>
+          <thead>
+            <tr>
+              <th>{label('reportsName', lang)}</th>
+              <th>{label('reportsQty', lang)}</th>
+              <th>{label('reportsRevenue', lang)}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td>{row.name}</td>
+                <td>{row.quantity}</td>
+                <td>{money(row.revenue)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

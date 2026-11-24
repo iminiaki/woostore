@@ -5,11 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { Button } from "@/components/ui/button";
+import { scrollCarouselToIndex, useCarouselActive } from "@/hooks/use-carousel-active";
 import type { Product } from "@/types";
 import { cn } from "@/lib/utils";
 
 const DESKTOP_VISIBLE = 4;
-const MOBILE_GAP = 12;
 
 type Props = {
   title: string;
@@ -23,18 +23,18 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
   const mobileRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
-  const [mobileActive, setMobileActive] = useState(0);
   const [desktopActive, setDesktopActive] = useState(0);
   const [mounted, setMounted] = useState(false);
+
+  const count = products.length;
+  const mobileActive = useCarouselActive(mobileRef, count);
+  const showDesktopControls = count > DESKTOP_VISIBLE;
+  const showMobileDots = count > 1;
+  const desktopPages = Math.max(1, count - DESKTOP_VISIBLE + 1);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const count = products.length;
-  const showDesktopControls = count > DESKTOP_VISIBLE;
-  const showMobileDots = count > 1;
-  const desktopPages = Math.max(1, count - DESKTOP_VISIBLE + 1);
 
   const syncDesktop = useCallback(() => {
     const el = desktopRef.current;
@@ -52,22 +52,6 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
     setDesktopActive(Math.min(desktopPages - 1, Math.max(0, idx)));
   }, [desktopPages]);
 
-  const syncMobile = useCallback(() => {
-    const el = mobileRef.current;
-    if (!el || count < 2) {
-      setMobileActive(0);
-      return;
-    }
-    const card = el.querySelector<HTMLElement>(":scope > div");
-    if (!card) {
-      setMobileActive(0);
-      return;
-    }
-    const step = card.offsetWidth + MOBILE_GAP;
-    const idx = Math.round(el.scrollLeft / step);
-    setMobileActive(Math.min(count - 1, Math.max(0, idx)));
-  }, [count]);
-
   useEffect(() => {
     if (!showDesktopControls) return;
     const el = desktopRef.current;
@@ -81,19 +65,6 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
       ro.disconnect();
     };
   }, [showDesktopControls, syncDesktop, products.length]);
-
-  useEffect(() => {
-    const el = mobileRef.current;
-    if (!el) return;
-    syncMobile();
-    el.addEventListener("scroll", syncMobile, { passive: true });
-    const ro = new ResizeObserver(syncMobile);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", syncMobile);
-      ro.disconnect();
-    };
-  }, [syncMobile, products.length]);
 
   const scrollDesktop = (dir: -1 | 1) => {
     const el = desktopRef.current;
@@ -109,15 +80,6 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
     const card = el.querySelector<HTMLElement>(":scope > div");
     const step = card ? card.offsetWidth + 16 : el.clientWidth;
     el.scrollTo({ left: page * step, behavior: "smooth" });
-  };
-
-  const goMobileIndex = (i: number) => {
-    const el = mobileRef.current;
-    if (!el) return;
-    const card = el.querySelector<HTMLElement>(":scope > div");
-    if (!card) return;
-    const step = card.offsetWidth + MOBILE_GAP;
-    el.scrollTo({ left: i * step, behavior: "smooth" });
   };
 
   if (!products.length) return null;
@@ -167,10 +129,10 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
       <div className="md:hidden">
         <div
           ref={mobileRef}
-          className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-smooth pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {products.map((p) => (
-            <div key={p.id} className="w-[72%] max-w-[280px] shrink-0 snap-start">
+            <div key={p.id} className="w-[72%] max-w-[280px] shrink-0 snap-center">
               <ProductCard product={p} />
             </div>
           ))}
@@ -190,7 +152,7 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
                     "rounded-full transition-all duration-300",
                     active ? "h-1.5 w-5 bg-foreground" : "h-1.5 w-1.5 bg-foreground/25",
                   )}
-                  onClick={() => goMobileIndex(i)}
+                  onClick={() => scrollCarouselToIndex(mobileRef.current, i)}
                 />
               );
             })}
