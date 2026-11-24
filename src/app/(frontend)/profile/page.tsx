@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { mockUser, orders } from "@/data/mock-data";
 import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,8 +20,21 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import Image from "next/image";
 
+const profileTabs = ["orders", "wishlist", "profile", "settings"] as const;
+
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState("orders");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const activeTab = profileTabs.includes(requestedTab as (typeof profileTabs)[number])
+    ? requestedTab!
+    : "orders";
+
+  const selectTab = (id: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", id);
+    router.replace(`/profile?${params.toString()}`, { scroll: false });
+  };
   const [variantSelectorProduct, setVariantSelectorProduct] = useState<any>(null);
   const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -432,7 +446,7 @@ export default function ProfilePage() {
               key={tab.id}
               variant="ghost"
               size="sm"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={`relative flex-1 flex items-center justify-center gap-2 transition-colors duration-200 z-10 ${
                 isActive 
                   ? 'text-foreground' 

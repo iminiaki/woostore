@@ -2,7 +2,7 @@ import type { Access, FieldAccess } from 'payload'
 
 export type UserRole = 'admin' | 'shop-manager' | 'customer'
 
-type UserWithRole = {
+export type UserWithRole = {
   id: string | number
   role?: UserRole
 }

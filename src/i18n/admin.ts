@@ -46,6 +46,10 @@ export const t = {
     singular: { en: 'Order', fa: 'سفارش' },
     plural: { en: 'Orders', fa: 'سفارش‌ها' },
   },
+  invoices: {
+    singular: { en: 'Invoice', fa: 'فاکتور' },
+    plural: { en: 'Invoices', fa: 'فاکتورها' },
+  },
   stockAlerts: {
     singular: { en: 'Stock alert', fa: 'اعلان موجودی' },
     plural: { en: 'Stock alerts', fa: 'اعلان‌های موجودی' },

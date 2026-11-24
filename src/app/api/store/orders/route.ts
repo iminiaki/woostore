@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { calculateCouponDiscount, type CouponDoc } from '@/lib/coupons'
+import { publicDocumentPath } from '@/lib/invoices'
 import { getPayloadClient } from '@/lib/payload'
 
 type OrderBody = {
@@ -168,11 +169,38 @@ export async function POST(req: Request) {
       overrideAccess: true,
     })
 
+    let proformaUrl: string | null = null
+    let proformaNumber: string | null = null
+    try {
+      const docs = await payload.find({
+        collection: 'invoices',
+        where: {
+          and: [
+            { order: { equals: order.id } },
+            { kind: { equals: 'proforma' } },
+            { status: { not_equals: 'void' } },
+          ],
+        },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const proforma = docs.docs[0]
+      if (proforma) {
+        proformaNumber = proforma.number
+        proformaUrl = publicDocumentPath(proforma)
+      }
+    } catch (err) {
+      console.error(err)
+    }
+
     return NextResponse.json({
       id: order.id,
       orderNumber: order.orderNumber,
       total: order.total,
       status: order.status,
+      proformaNumber,
+      proformaUrl,
     })
   } catch (err) {
     console.error(err)

@@ -110,6 +110,7 @@ export default function CheckoutPage() {
         error?: string;
         orderNumber?: string;
         id?: string;
+        proformaUrl?: string | null;
       };
 
       if (!res.ok) {
@@ -120,7 +121,10 @@ export default function CheckoutPage() {
 
       playSuccessSound();
       dispatch({ type: "clear" });
-      router.push(`/checkout/success?order=${encodeURIComponent(data.orderNumber || "")}`);
+      const params = new URLSearchParams();
+      if (data.orderNumber) params.set("order", data.orderNumber);
+      if (data.proformaUrl) params.set("doc", data.proformaUrl);
+      router.push(`/checkout/success?${params.toString()}`);
     } catch {
       playErrorSound();
       setError("Failed to place order");

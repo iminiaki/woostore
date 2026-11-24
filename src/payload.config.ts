@@ -10,6 +10,7 @@ import { Attributes } from './collections/Attributes'
 import { Brands } from './collections/Brands'
 import { Categories } from './collections/Categories'
 import { Coupons } from './collections/Coupons'
+import { Invoices } from './collections/Invoices'
 import { Media } from './collections/Media'
 import { Orders } from './collections/Orders'
 import { Products } from './collections/Products'
@@ -58,6 +59,7 @@ export default buildConfig({
     Products,
     Coupons,
     Orders,
+    Invoices,
     StockAlerts,
     Warehouses,
   ],

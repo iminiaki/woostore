@@ -2,9 +2,48 @@ import type { CollectionConfig, Field } from 'payload'
 
 import { staffOnly } from '@/access/roles'
 import { t } from '@/i18n/admin'
+import { syncOrderDocuments } from '@/lib/invoices'
 
-/** Fields staff may change after an order is placed (Woo-style). */
-const EDITABLE_ON_UPDATE = new Set(['status', 'staffNote', 'updatedAt'])
+/**
+ * Checkout snapshots stay as they were placed. Staff can change status and the
+ * internal note. Locked fields are written back from the saved order so a status
+ * update still passes validation.
+ */
+const LOCKED_ON_UPDATE = [
+  'orderNumber',
+  'currency',
+  'customer',
+  'email',
+  'items',
+  'subtotal',
+  'discountTotal',
+  'shippingTotal',
+  'taxTotal',
+  'total',
+  'coupon',
+  'couponCode',
+  'freeShipping',
+  'paymentMethod',
+  'customerNote',
+  'billingName',
+  'billingEmail',
+  'billingPhone',
+  'billingCountry',
+  'billingState',
+  'billingCity',
+  'billingAddress1',
+  'billingAddress2',
+  'billingPostcode',
+  'shippingName',
+  'shippingEmail',
+  'shippingPhone',
+  'shippingCountry',
+  'shippingState',
+  'shippingCity',
+  'shippingAddress1',
+  'shippingAddress2',
+  'shippingPostcode',
+] as const
 
 const addressFields = (prefix: string): Field[] =>
   [
@@ -64,21 +103,49 @@ export const Orders: CollectionConfig = {
       },
     ],
     beforeChange: [
-      ({ data, operation }) => {
-        if (operation !== 'update' || !data) return data
+      ({ data, originalDoc, operation }) => {
+        if (operation !== 'update' || !data || !originalDoc) return data
 
-        // Drop any attempt to rewrite checkout snapshots (items, totals, addresses, …)
-        const allowed: Record<string, unknown> = {}
-        for (const key of Object.keys(data)) {
-          if (EDITABLE_ON_UPDATE.has(key)) {
-            allowed[key] = data[key as keyof typeof data]
-          }
+        for (const key of LOCKED_ON_UPDATE) {
+          if (originalDoc[key] !== undefined) data[key] = originalDoc[key]
         }
-        return allowed
+        return data
+      },
+    ],
+    beforeDelete: [
+      async ({ id, req }) => {
+        const docs = await req.payload.find({
+          collection: 'invoices',
+          where: { order: { equals: id } },
+          limit: 20,
+          depth: 0,
+          overrideAccess: true,
+          req,
+        })
+        for (const doc of docs.docs) {
+          await req.payload.delete({
+            collection: 'invoices',
+            id: doc.id,
+            overrideAccess: true,
+            req,
+          })
+        }
       },
     ],
     afterChange: [
       async ({ doc, previousDoc, req, operation }) => {
+        try {
+          await syncOrderDocuments({
+            payload: req.payload,
+            req,
+            doc,
+            previousDoc,
+            operation,
+          })
+        } catch (err) {
+          req.payload.logger.error({ err, msg: 'Invoice sync failed' })
+        }
+
         const couponId =
           typeof doc.coupon === 'object' && doc.coupon
             ? doc.coupon.id
@@ -117,6 +184,15 @@ export const Orders: CollectionConfig = {
     ],
   },
   fields: [
+    {
+      name: 'documents',
+      type: 'ui',
+      admin: {
+        components: {
+          Field: '@/components/admin/OrderInvoicesField#OrderInvoicesField',
+        },
+      },
+    },
     {
       name: 'orderNumber',
       type: 'text',
