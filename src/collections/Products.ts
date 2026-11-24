@@ -3,6 +3,7 @@ import type { CollectionConfig } from 'payload'
 import { anyone, staffOnly } from '@/access/roles'
 import { currencyPricesField, optionalCurrencyPricesField } from '@/fields/prices'
 import { t } from '@/i18n/admin'
+import { findRestockedVariantKeys, notifyPendingStockAlerts } from '@/lib/stock-notify'
 
 export const Products: CollectionConfig = {
   slug: 'products',
@@ -85,6 +86,45 @@ export const Products: CollectionConfig = {
                 : first
         }
         return data
+      },
+    ],
+    afterChange: [
+      async ({ doc, previousDoc, req, operation }) => {
+        if (operation !== 'update' || !previousDoc) return
+
+        const { productRestocked, variantKeys } = findRestockedVariantKeys(
+          doc as { inStock?: boolean | null; variants?: { id?: string | number; inStock?: boolean | null }[] },
+          previousDoc as {
+            inStock?: boolean | null
+            variants?: { id?: string | number; inStock?: boolean | null }[]
+          },
+        )
+
+        const name = String((doc as { title?: string }).title || 'Product')
+        const productId = doc.id
+
+        try {
+          if (productRestocked) {
+            await notifyPendingStockAlerts({
+              payload: req.payload,
+              req,
+              productId,
+              variantKey: '',
+              productName: name,
+            })
+          }
+          for (const key of variantKeys) {
+            await notifyPendingStockAlerts({
+              payload: req.payload,
+              req,
+              productId,
+              variantKey: key,
+              productName: name,
+            })
+          }
+        } catch (err) {
+          req.payload.logger.error({ err, msg: 'stock-notify afterChange failed' })
+        }
       },
     ],
   },

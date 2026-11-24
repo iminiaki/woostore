@@ -15,6 +15,7 @@ import { Orders } from './collections/Orders'
 import { Products } from './collections/Products'
 import { Users } from './collections/Users'
 import { Warehouses } from './collections/Warehouses'
+import { StockAlerts } from './collections/StockAlerts'
 import { Homepage } from './globals/Homepage'
 import { StoreSettings } from './globals/StoreSettings'
 import { adminLanguages } from './i18n/admin'
@@ -57,6 +58,7 @@ export default buildConfig({
     Products,
     Coupons,
     Orders,
+    StockAlerts,
     Warehouses,
   ],
   globals: [Homepage, StoreSettings],

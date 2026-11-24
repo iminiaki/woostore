@@ -20,6 +20,7 @@ import {
   isSizeAvailable,
   isVariantInStock,
 } from "@/lib/variant-utils";
+import { StockNotifyForm } from "@/components/stock-notify-form";
 
 const FALLBACK_COLOR_CLASS: Record<string, string> = {
   black: "bg-black border border-black",
@@ -316,9 +317,19 @@ export function ProductDetail({ product }: { product: Product }) {
             </div>
           )}
 
-          <Button onClick={handleAddToCart} disabled={!canAddToCart} className="w-full" size="lg">
-            {inStock ? "Add to Cart" : "Out of Stock"}
-          </Button>
+          {inStock ? (
+            <Button onClick={handleAddToCart} disabled={!canAddToCart} className="w-full" size="lg">
+              Add to Cart
+            </Button>
+          ) : (
+            <StockNotifyForm
+              productId={product.id}
+              productName={product.name}
+              variantId={activeVariant?.id}
+              color={selectedColor || undefined}
+              size={selectedSize || undefined}
+            />
+          )}
 
           <div>
             <h2 className="text-lg font-medium">Description</h2>

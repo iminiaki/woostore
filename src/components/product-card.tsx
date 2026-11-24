@@ -5,10 +5,11 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Heart, ShoppingCart, TriangleAlert } from "lucide-react";
+import { Bell, Heart, ShoppingCart, TriangleAlert } from "lucide-react";
 import { useCart } from "./cart-store";
 import { useWishlist } from "./wishlist-store";
 import { VariantSelector } from "./variant-selector";
+import { StockNotifyModal } from "./stock-notify-modal";
 import { useMemo, useState } from "react";
 import { getPriceRange, getVariantPrice } from "@/lib/variant-utils";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ export function ProductCard({ product }: { product: Product }) {
   const { dispatch: wishlistDispatch, isInWishlist } = useWishlist();
   const { dispatch: cartDispatch } = useCart();
   const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
   const isWishlisted = isInWishlist(product.id);
   const priceRange = useMemo(() => getPriceRange(product), [product]);
   const primaryImage = product.images[0] || "/product images/man.jpg";
@@ -178,7 +180,7 @@ export function ProductCard({ product }: { product: Product }) {
               />
             </Button>
 
-            {/* Quick Add — slides up */}
+            {/* In stock: Quick Add slides up on desktop hover */}
             {product.inStock ? (
               <Button
                 variant="secondary"
@@ -197,14 +199,58 @@ export function ProductCard({ product }: { product: Product }) {
                 Quick Add
               </Button>
             ) : (
+              /* OOS morphs to Notify me on desktop hover; mobile stays Out of Stock */
               <Button
                 variant="secondary"
                 size="sm"
-                className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 cursor-not-allowed border border-border bg-background px-3 py-1.5 font-medium text-muted-foreground !opacity-100"
-                disabled
+                type="button"
+                aria-label="Out of stock — notify me when available"
+                className={cn(
+                  "absolute bottom-3 left-1/2 z-10 -translate-x-1/2",
+                  "border border-border bg-background px-3 py-1.5 font-medium text-muted-foreground",
+                  "cursor-default md:cursor-pointer",
+                  "transition-[color,background-color,border-color,box-shadow,backdrop-filter] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  "md:group-hover:border-border/80 md:group-hover:bg-background/95 md:group-hover:text-foreground md:group-hover:shadow-md md:group-hover:backdrop-blur-sm",
+                  "md:group-hover:hover:bg-accent",
+                  "motion-reduce:transition-none",
+                )}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (
+                    typeof window !== "undefined" &&
+                    window.matchMedia("(min-width: 768px)").matches
+                  ) {
+                    setNotifyOpen(true);
+                  }
+                }}
               >
-                <TriangleAlert className="mr-1 h-4 w-4" />
-                Out of Stock
+                <span className="relative grid grid-cols-1 grid-rows-1 items-center justify-items-center">
+                  <span
+                    className={cn(
+                      "col-start-1 row-start-1 flex items-center whitespace-nowrap",
+                      "transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      "md:group-hover:pointer-events-none md:group-hover:scale-95 md:group-hover:opacity-0",
+                      "motion-reduce:transition-none",
+                    )}
+                  >
+                    <TriangleAlert className="mr-1 h-4 w-4" />
+                    Out of Stock
+                  </span>
+                  <span
+                    className={cn(
+                      "col-start-1 row-start-1 flex items-center whitespace-nowrap",
+                      "pointer-events-none scale-95 opacity-0",
+                      "transition-all duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      "md:group-hover:scale-100 md:group-hover:opacity-100",
+                      "motion-reduce:transition-none",
+                    )}
+                    aria-hidden
+                  >
+                    <Bell className="mr-1.5 h-4 w-4" />
+                    Notify me
+                  </span>
+                </span>
               </Button>
             )}
           </div>
@@ -250,7 +296,7 @@ export function ProductCard({ product }: { product: Product }) {
                 )}
               </div>
             </div>
-            {product.inStock && (
+            {product.inStock ? (
               <Button
                 variant="secondary"
                 size="icon"
@@ -259,7 +305,7 @@ export function ProductCard({ product }: { product: Product }) {
               >
                 <ShoppingCart className="h-4 w-4" />
               </Button>
-            )}
+            ) : null}
           </div>
         </div>
       </CardContent>
@@ -269,6 +315,13 @@ export function ProductCard({ product }: { product: Product }) {
         isOpen={isVariantSelectorOpen}
         onClose={() => setIsVariantSelectorOpen(false)}
         onAddToCart={handleAddToCartWithVariants}
+      />
+
+      <StockNotifyModal
+        open={notifyOpen}
+        onOpenChange={setNotifyOpen}
+        productId={product.id}
+        productName={product.name}
       />
     </Card>
   );

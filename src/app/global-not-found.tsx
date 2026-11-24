@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-context";
 import { CartProvider } from "@/components/cart-store";
 import { WishlistProvider } from "@/components/wishlist-store";
-import { SiteHeader } from "@/components/site-header";
+import { HeaderHeroModeProvider, SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BottomNav } from "@/components/bottom-nav";
 import { ThemeFavicon } from "@/components/theme-favicon";
@@ -37,12 +37,14 @@ export default function GlobalNotFound() {
           <AuthProvider>
             <CartProvider>
               <WishlistProvider>
-                <SiteHeader />
-                <main className="min-h-[calc(100vh-4rem)] pb-16 md:pb-0">
-                  <NotFoundView />
-                </main>
-                <SiteFooter />
-                <BottomNav />
+                <HeaderHeroModeProvider>
+                  <SiteHeader />
+                  <main className="min-h-[calc(100vh-4rem)] pb-16 md:pb-0">
+                    <NotFoundView />
+                  </main>
+                  <SiteFooter />
+                  <BottomNav />
+                </HeaderHeroModeProvider>
               </WishlistProvider>
             </CartProvider>
           </AuthProvider>

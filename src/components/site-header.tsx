@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePathname } from "next/navigation";
 import { ShoppingBag, User2 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
@@ -21,9 +29,33 @@ const nav = [
   { href: "/contact", label: "Contact" },
 ];
 
+const HeaderHeroModeContext = createContext<{
+  enabled: boolean;
+  setEnabled: (value: boolean) => void;
+}>({ enabled: false, setEnabled: () => {} });
+
+/** Lets full-bleed pages (home, 404) opt into the transparent overlay header. */
+export function HeaderHeroModeProvider({ children }: { children: ReactNode }) {
+  const [enabled, setEnabled] = useState(false);
+  const value = useMemo(() => ({ enabled, setEnabled }), [enabled]);
+  return (
+    <HeaderHeroModeContext.Provider value={value}>{children}</HeaderHeroModeContext.Provider>
+  );
+}
+
+/** Call from a page that should use the home-style overlay header. */
+export function useHeroHeader() {
+  const { setEnabled } = useContext(HeaderHeroModeContext);
+  useLayoutEffect(() => {
+    setEnabled(true);
+    return () => setEnabled(false);
+  }, [setEnabled]);
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
-  const isHome = pathname === "/";
+  const { enabled: heroMode } = useContext(HeaderHeroModeContext);
+  const isOverlayPage = pathname === "/" || heroMode;
   const [scrolled, setScrolled] = useState(false);
   const { totalQuantity } = useCart();
   const { isAuthenticated } = useAuth();
@@ -39,8 +71,8 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Home at top: clear glass. Otherwise / scrolled: solid frosted dock.
-  const clearGlass = isHome && !scrolled;
+  // Overlay pages at top: clear glass. Otherwise / scrolled: solid frosted dock.
+  const clearGlass = isOverlayPage && !scrolled;
 
   return (
     <>
@@ -134,10 +166,10 @@ export function SiteHeader() {
         </div>
       </header>
 
-      {/* Spacer: home overlays hero; other pages clear the floating bar */}
+      {/* Spacer: overlay pages sit under the header; others clear the floating bar */}
       <div
         className={cn(
-          isHome
+          isOverlayPage
             ? "h-0"
             : "h-[calc(4.5rem+env(safe-area-inset-top))] md:h-[5.5rem]",
         )}

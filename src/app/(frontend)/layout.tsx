@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-context";
 import { CartProvider } from "@/components/cart-store";
 import { WishlistProvider } from "@/components/wishlist-store";
-import { SiteHeader } from "@/components/site-header";
+import { HeaderHeroModeProvider, SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { BottomNav } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/toaster";
@@ -69,13 +69,15 @@ export default function RootLayout({
           <AuthProvider>
             <CartProvider>
               <WishlistProvider>
-                <SiteHeader />
-                <main className="min-h-[calc(100vh-4rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-                  {children}
-                </main>
-                <SiteFooter />
-                <BottomNav />
-                <Toaster />
+                <HeaderHeroModeProvider>
+                  <SiteHeader />
+                  <main className="min-h-[calc(100vh-4rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+                    {children}
+                  </main>
+                  <SiteFooter />
+                  <BottomNav />
+                  <Toaster />
+                </HeaderHeroModeProvider>
               </WishlistProvider>
             </CartProvider>
           </AuthProvider>

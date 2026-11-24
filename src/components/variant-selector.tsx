@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types";
 import {
+  findVariant,
   getVariantImages,
   getVariantOriginalPrice,
   getVariantPrice,
@@ -13,6 +14,7 @@ import {
   isSizeAvailable,
   isVariantInStock,
 } from "@/lib/variant-utils";
+import { StockNotifyForm } from "@/components/stock-notify-form";
 
 interface VariantSelectorProps {
   product: Product;
@@ -62,6 +64,10 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
   );
   const inStock = useMemo(
     () => isVariantInStock(product, selectedColor || undefined, selectedSize || undefined),
+    [product, selectedColor, selectedSize],
+  );
+  const activeVariant = useMemo(
+    () => findVariant(product, selectedColor || undefined, selectedSize || undefined),
     [product, selectedColor, selectedSize],
   );
 
@@ -168,9 +174,20 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
             </div>
           )}
 
-          <Button onClick={handleAddToCart} disabled={!canAddToCart} className="w-full">
-            {inStock ? "Add to Cart" : "Out of Stock"}
-          </Button>
+          {inStock ? (
+            <Button onClick={handleAddToCart} disabled={!canAddToCart} className="w-full">
+              Add to Cart
+            </Button>
+          ) : (
+            <StockNotifyForm
+              productId={product.id}
+              productName={product.name}
+              variantId={activeVariant?.id}
+              color={selectedColor || undefined}
+              size={selectedSize || undefined}
+              className="border-0 bg-transparent p-0"
+            />
+          )}
         </div>
       </DialogContent>
     </Dialog>

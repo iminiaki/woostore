@@ -1,4 +1,5 @@
 export interface ProductVariant {
+  id?: string;
   color?: string;
   size?: string;
   sku?: string;

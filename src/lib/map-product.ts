@@ -128,6 +128,7 @@ export function mapPayloadProduct(
       .filter(Boolean) as string[]
 
     variants.push({
+      id: row.id != null ? String(row.id) : undefined,
       color,
       size,
       sku: typeof row.sku === 'string' ? row.sku : undefined,
