@@ -22,7 +22,7 @@ const mockCoupons: Coupon[] = [
     minAmount: 50,
     maxDiscount: 100,
     validFrom: new Date("2024-01-01"),
-    validTo: new Date("2025-12-31"),
+    validTo: new Date("20261-12-31"),
     usageLimit: 1000,
     usedCount: 500,
     description: "Save 10% on orders over $50"
