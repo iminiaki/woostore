@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut } from "lucide-react";
@@ -19,6 +19,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
 import { toast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 
 type SavedAddress = {
@@ -98,16 +99,52 @@ export default function ProfilePage() {
 
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
 
-  const tabs = [
-    { id: "orders", label: "Orders", icon: Package },
-    { id: "wishlist", label: "Wishlist", icon: Heart },
-    { id: "profile", label: "Profile", icon: User },
-    { id: "settings", label: "Settings", icon: Settings },
-  ];
-
   const { state: wishlistState, dispatch: wishlistDispatch } = useWishlist();
   const { dispatch: cartDispatch } = useCart();
   const { user, logout, updateProfile } = useAuth();
+
+  const tabs = [
+    { id: "orders", label: "Orders", icon: Package },
+    {
+      id: "wishlist",
+      label: "Wishlist",
+      icon: Heart,
+      count: wishlistState.items.length > 0 ? wishlistState.items.length : undefined,
+    },
+    { id: "profile", label: "Profile", icon: User },
+    { id: "settings", label: "Settings", icon: Settings },
+  ] as const;
+
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+
+  useLayoutEffect(() => {
+    const update = () => {
+      const el = tabRefs.current[activeTab];
+      const list = tabListRef.current;
+      if (!el || !list) return;
+      const listRect = list.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
+      const fullWidth = rect.width;
+      const width = Math.min(fullWidth * 0.42, 36);
+      const left = rect.left - listRect.left + list.scrollLeft + (fullWidth - width) / 2;
+      setIndicator({ left, width });
+    };
+    update();
+    window.addEventListener("resize", update);
+    const list = tabListRef.current;
+    list?.addEventListener("scroll", update, { passive: true });
+    return () => {
+      window.removeEventListener("resize", update);
+      list?.removeEventListener("scroll", update);
+    };
+  }, [activeTab, wishlistState.items.length]);
+
+  useEffect(() => {
+    const el = tabRefs.current[activeTab];
+    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [activeTab]);
 
   useEffect(() => {
     if (!user) return;
@@ -486,37 +523,66 @@ export default function ProfilePage() {
           </p>
         </div>
 
-      <nav className="relative flex bg-muted p-1 rounded-lg overflow-x-scroll sm:overflow-x-hidden">
-        {/* Moving background indicator */}
-        <div 
-          className="absolute top-1 bottom-1 bg-background rounded-md shadow-sm transition-transform duration-300 ease-in-out"
+      <nav aria-label="Account sections" className="relative border-b border-border/70">
+        <div
+          ref={tabListRef}
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
+          role="tablist"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const count = "count" in tab ? tab.count : undefined;
+            return (
+              <button
+                key={tab.id}
+                ref={(node) => {
+                  tabRefs.current[tab.id] = node;
+                }}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => selectTab(tab.id)}
+                className={cn(
+                  "relative flex shrink-0 items-center gap-2 px-3 py-3.5 text-sm font-medium transition-colors duration-200",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
+                  isActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-300",
+                    isActive && "scale-110",
+                  )}
+                  strokeWidth={isActive ? 2.25 : 1.75}
+                />
+                <span>{tab.label}</span>
+                {count != null ? (
+                  <span
+                    className={cn(
+                      "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums",
+                      isActive
+                        ? "bg-foreground text-background"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 h-1 rounded-full bg-foreground transition-[transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{
-            width: `${100 / tabs.length}%`,
-            transform: `translateX(${tabs.findIndex(tab => tab.id === activeTab) * 100}%)`,
+            width: indicator.width,
+            transform: `translateX(${indicator.left}px)`,
           }}
         />
-        
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <Button
-              key={tab.id}
-              variant="ghost"
-              size="sm"
-              onClick={() => selectTab(tab.id)}
-              className={`relative flex-1 flex items-center justify-center gap-2 transition-colors duration-200 z-10 ${
-                isActive 
-                  ? 'text-foreground' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
-              style={isActive ? { backgroundColor: 'transparent !important' } : {}}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </Button>
-          );
-        })}
       </nav>
 
       <div className="min-h-[400px]">
