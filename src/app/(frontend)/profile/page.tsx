@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { mockUser, orders } from "@/data/mock-data";
 import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AccountOrdersList } from "@/components/account-orders-list";
 import { useWishlist } from "@/components/wishlist-store";
 import { useCart } from "@/components/cart-store";
 import { useAuth } from "@/components/auth-context";
@@ -18,7 +18,35 @@ import { VariantSelector } from "@/components/variant-selector";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ProtectedRoute } from "@/components/protected-route";
 import { PageShell } from "@/components/page-shell";
+import { toast } from "@/components/ui/use-toast";
 import Image from "next/image";
+
+type SavedAddress = {
+  id: string;
+  title: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  isDefault: boolean;
+};
+
+type AccountSettings = {
+  orderUpdates: boolean;
+  newArrivals: boolean;
+  promotional: boolean;
+  browsingHistory: boolean;
+  recommendations: boolean;
+};
+
+const defaultSettings: AccountSettings = {
+  orderUpdates: true,
+  newArrivals: true,
+  promotional: false,
+  browsingHistory: true,
+  recommendations: false,
+};
 
 const profileTabs = ["orders", "wishlist", "profile", "settings"] as const;
 
@@ -40,31 +68,23 @@ export default function ProfilePage() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isEditAddressOpen, setIsEditAddressOpen] = useState(false);
   const [profileData, setProfileData] = useState({
-    firstName: mockUser.name.split(" ")[0] || "",
-    lastName: mockUser.name.split(" ").slice(1).join(" ") || "",
-    email: mockUser.email,
-    phone: mockUser.phone || "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
   });
   
   const [editForm, setEditForm] = useState({
-    firstName: profileData.firstName,
-    lastName: profileData.lastName,
-    email: profileData.email,
-    phone: profileData.phone,
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
   });
 
-  const [addresses, setAddresses] = useState([
-    {
-      id: "1",
-      title: "Home",
-      street: mockUser.address?.street || "",
-      city: mockUser.address?.city || "",
-      state: mockUser.address?.state || "",
-      zipCode: mockUser.address?.zipCode || "",
-      country: mockUser.address?.country || "",
-      isDefault: true,
-    }
-  ]);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [addressesReady, setAddressesReady] = useState(false);
+  const [settings, setSettings] = useState<AccountSettings>(defaultSettings);
+  const [settingsReady, setSettingsReady] = useState(false);
 
   const [editAddressForm, setEditAddressForm] = useState({
     id: "",
@@ -87,7 +107,48 @@ export default function ProfilePage() {
 
   const { state: wishlistState, dispatch: wishlistDispatch } = useWishlist();
   const { dispatch: cartDispatch } = useCart();
-  const { logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+    setProfileData({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    setAddressesReady(false);
+    setSettingsReady(false);
+    try {
+      const rawAddresses = localStorage.getItem(`lastore-addresses:${user.email}`);
+      const parsedAddresses = rawAddresses ? JSON.parse(rawAddresses) : [];
+      setAddresses(Array.isArray(parsedAddresses) ? parsedAddresses : []);
+    } catch {
+      setAddresses([]);
+    }
+    try {
+      const rawSettings = localStorage.getItem(`lastore-settings:${user.email}`);
+      setSettings(rawSettings ? { ...defaultSettings, ...JSON.parse(rawSettings) } : defaultSettings);
+    } catch {
+      setSettings(defaultSettings);
+    }
+    setAddressesReady(true);
+    setSettingsReady(true);
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email || !addressesReady) return;
+    localStorage.setItem(`lastore-addresses:${user.email}`, JSON.stringify(addresses));
+  }, [addresses, addressesReady, user?.email]);
+
+  useEffect(() => {
+    if (!user?.email || !settingsReady) return;
+    localStorage.setItem(`lastore-settings:${user.email}`, JSON.stringify(settings));
+  }, [settings, settingsReady, user?.email]);
 
   const handleAddToCartWithVariants = (product: any, selectedColor: string, selectedSize: string) => {
     const productWithVariants = {
@@ -99,63 +160,7 @@ export default function ProfilePage() {
     wishlistDispatch({ type: "remove", productId: product.id });
   };
 
-  const renderOrders = () => (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Your Orders</h2>
-      <div className="space-y-4">
-        {orders.map((order) => (
-          <Card key={order.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-medium">Order {order.id}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Placed on {order.createdAt.toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <Badge 
-                    variant={order.status === "delivered" ? "default" : "secondary"}
-                    className="mb-2"
-                  >
-                    {order.status}
-                  </Badge>
-                  <p className="font-medium">${order.total.toFixed(2)}</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {order.items.map((item) => (
-                  <div key={item.productId} className="flex items-center gap-3">
-                    <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted flex-shrink-0">
-                      <Image
-                        src={item.product.images[0]}
-                        alt={item.product.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Size: M • Color: {item.product.colors[0]} • Qty: {item.quantity}
-                      </p>
-                      <p className="text-sm font-medium">${item.price.toFixed(2)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="flex gap-2 mt-4 pt-4 border-t">
-                <Button variant="outline" size="sm">View Details</Button>
-                <Button variant="outline" size="sm">Reorder</Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
+  const renderOrders = () => <AccountOrdersList />;
 
   const renderWishlist = () => (
     <div className="space-y-6">
@@ -169,7 +174,7 @@ export default function ProfilePage() {
               Start adding items to your wishlist to see them here
             </p>
             <Button asChild>
-              <a href="/shop">Browse Products</a>
+              <Link href="/shop">Browse Products</Link>
             </Button>
           </CardContent>
         </Card>
@@ -178,17 +183,23 @@ export default function ProfilePage() {
           {wishlistState.items.map((product) => (
             <Card key={product.id}>
               <CardContent className="p-4">
-                <div className="relative aspect-[1/1] mb-4 overflow-hidden rounded-md bg-muted">
-                  <Image
-                    src={product.images[0]}
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <h3 className="font-medium">{product.name}</h3>
-                <p className="text-sm text-muted-foreground capitalize">{product.category}</p>
-                <p className="font-medium mt-2">${product.price.toFixed(2)}</p>
+                <Link href={`/product/${product.id}`} className="block">
+                  <div className="relative aspect-[1/1] mb-4 overflow-hidden rounded-md bg-muted">
+                    {product.images?.[0] ? (
+                      <Image
+                        src={product.images[0]}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <h3 className="font-medium hover:underline">{product.name}</h3>
+                </Link>
+                {product.category ? (
+                  <p className="text-sm text-muted-foreground capitalize">{product.category}</p>
+                ) : null}
+                <p className="font-medium mt-2">${Number(product.price || 0).toFixed(2)}</p>
                 <div className="flex gap-2 mt-4">
                   <Button 
                     size="sm" 
@@ -259,6 +270,9 @@ export default function ProfilePage() {
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="space-y-4">
+            {addresses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No shipping addresses saved yet.</p>
+            ) : null}
             {addresses.map((address) => (
               <div key={address.id} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -301,25 +315,37 @@ export default function ProfilePage() {
                       <Edit className="h-4 w-4" />
                     </Button>
                     
-                    {addresses.length > 1 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => {
-                          setAddresses(addresses.filter(a => a.id !== address.id));
-                        }}
-                        className="text-muted-foreground hover:text-destructive"
-                        title="Remove address"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        const remaining = addresses.filter((item) => item.id !== address.id);
+                        const next = address.isDefault && remaining.length
+                          ? remaining.map((item, index) => ({ ...item, isDefault: index === 0 }))
+                          : remaining;
+                        setAddresses(next);
+                      }}
+                      className="text-muted-foreground hover:text-destructive"
+                      title="Remove address"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {address.street || "No street address"}<br />
-                  {address.city || "No city"}, {address.state || "No state"} {address.zipCode || "No ZIP"}<br />
-                  {address.country || "No country"}
+                  {address.street}
+                  {[address.city, address.state, address.zipCode].filter(Boolean).length ? (
+                    <>
+                      <br />
+                      {[address.city, address.state, address.zipCode].filter(Boolean).join(", ")}
+                    </>
+                  ) : null}
+                  {address.country ? (
+                    <>
+                      <br />
+                      {address.country}
+                    </>
+                  ) : null}
                 </p>
                 {address.isDefault && (
                   <div className="inline-flex items-center gap-1 mt-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
@@ -362,15 +388,27 @@ export default function ProfilePage() {
             <h3 className="font-medium">Email Notifications</h3>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
-                <Checkbox id="order-updates" defaultChecked />
+                <Checkbox
+                  id="order-updates"
+                  checked={settings.orderUpdates}
+                  onCheckedChange={(checked) => setSettings({ ...settings, orderUpdates: checked === true })}
+                />
                 <Label htmlFor="order-updates">Order updates</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="new-arrivals" defaultChecked />
+                <Checkbox
+                  id="new-arrivals"
+                  checked={settings.newArrivals}
+                  onCheckedChange={(checked) => setSettings({ ...settings, newArrivals: checked === true })}
+                />
                 <Label htmlFor="new-arrivals">New arrivals</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="promotional" />
+                <Checkbox
+                  id="promotional"
+                  checked={settings.promotional}
+                  onCheckedChange={(checked) => setSettings({ ...settings, promotional: checked === true })}
+                />
                 <Label htmlFor="promotional">Promotional emails</Label>
               </div>
             </div>
@@ -380,17 +418,35 @@ export default function ProfilePage() {
             <h3 className="font-medium">Privacy</h3>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
-                <Checkbox id="browsing-history" defaultChecked />
+                <Checkbox
+                  id="browsing-history"
+                  checked={settings.browsingHistory}
+                  onCheckedChange={(checked) => setSettings({ ...settings, browsingHistory: checked === true })}
+                />
                 <Label htmlFor="browsing-history">Save browsing history</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="recommendations" />
+                <Checkbox
+                  id="recommendations"
+                  checked={settings.recommendations}
+                  onCheckedChange={(checked) => setSettings({ ...settings, recommendations: checked === true })}
+                />
                 <Label htmlFor="recommendations">Personalized recommendations</Label>
               </div>
             </div>
           </div>
           
-          <Button variant="outline">Save Settings</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (user?.email) {
+                localStorage.setItem(`lastore-settings:${user.email}`, JSON.stringify(settings));
+              }
+              toast({ title: "Settings saved" });
+            }}
+          >
+            Save Settings
+          </Button>
         </CardContent>
       </Card>
 
@@ -425,7 +481,9 @@ export default function ProfilePage() {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {mockUser.name.split(" ")[0]}</p>
+          <p className="text-muted-foreground">
+            Welcome back{user?.firstName ? `, ${user.firstName}` : ""}
+          </p>
         </div>
 
       <nav className="relative flex bg-muted p-1 rounded-lg overflow-x-scroll sm:overflow-x-hidden">
@@ -543,15 +601,19 @@ export default function ProfilePage() {
               </Button>
               <Button 
                 onClick={() => {
-                  // Update the profile data with form values
-                  setProfileData({
-                    firstName: editForm.firstName,
-                    lastName: editForm.lastName,
-                    email: editForm.email,
-                    phone: editForm.phone,
+                  const next = {
+                    firstName: editForm.firstName.trim(),
+                    lastName: editForm.lastName.trim(),
+                    email: profileData.email,
+                    phone: editForm.phone.trim(),
+                  };
+                  updateProfile({
+                    firstName: next.firstName,
+                    lastName: next.lastName,
+                    phone: next.phone,
                   });
-                  // Here you would typically save the changes to your backend
-                  console.log("Saving profile changes:", editForm);
+                  setProfileData(next);
+                  toast({ title: "Profile saved" });
                   setIsEditProfileOpen(false);
                 }}
                 className="flex-1"
@@ -643,28 +705,32 @@ export default function ProfilePage() {
               </Button>
               <Button 
                 onClick={() => {
+                  const title = editAddressForm.title.trim();
+                  const street = editAddressForm.street.trim();
+                  if (!title || !street) {
+                    toast.error({ title: "Add a title and street address" });
+                    return;
+                  }
                   if (isAddingNewAddress) {
-                    // Add new address
-                    const newAddress = {
-                      id: Date.now().toString(),
-                      title: editAddressForm.title,
-                      street: editAddressForm.street,
-                      city: editAddressForm.city,
-                      state: editAddressForm.state,
-                      zipCode: editAddressForm.zipCode,
-                      country: editAddressForm.country,
-                      isDefault: addresses.length === 0, // First address becomes default
+                    const newAddress: SavedAddress = {
+                      id: crypto.randomUUID(),
+                      title,
+                      street,
+                      city: editAddressForm.city.trim(),
+                      state: editAddressForm.state.trim(),
+                      zipCode: editAddressForm.zipCode.trim(),
+                      country: editAddressForm.country.trim(),
+                      isDefault: addresses.length === 0,
                     };
                     setAddresses([...addresses, newAddress]);
-                    console.log("Adding new address:", newAddress);
+                    toast({ title: "Address added" });
                   } else {
-                    // Update existing address
                     setAddresses(addresses.map(addr => 
                       addr.id === editAddressForm.id 
-                        ? { ...addr, ...editAddressForm }
+                        ? { ...addr, ...editAddressForm, title, street }
                         : addr
                     ));
-                    console.log("Updating address:", editAddressForm);
+                    toast({ title: "Address saved" });
                   }
                   setIsEditAddressOpen(false);
                 }}
