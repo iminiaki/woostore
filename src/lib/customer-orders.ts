@@ -134,6 +134,7 @@ export function toCustomerOrder(order: Order, invoices: Invoice[]): CustomerOrde
     shippingTotal: order.shippingTotal || 0,
     taxTotal: order.taxTotal || 0,
     total: order.total,
+    walletAmount: Number(order.walletAmount || 0),
     couponCode: order.couponCode,
     freeShipping: Boolean(order.freeShipping),
     paymentMethod: order.paymentMethod,
@@ -203,6 +204,7 @@ export async function loadOrderReceipt(orderNumber: string): Promise<OrderReceip
     shippingTotal: order.shippingTotal || 0,
     taxTotal: order.taxTotal || 0,
     total: order.total,
+    walletAmount: Number(order.walletAmount || 0),
     paymentMethod: order.paymentMethod || null,
     createdAt: order.createdAt,
   }

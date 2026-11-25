@@ -285,6 +285,26 @@ function OrderDetail() {
                     {formatMoney(order.total, order.currency, "en")}
                   </span>
                 </div>
+                {order.walletAmount > 0 ? (
+                  <>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Wallet</span>
+                      <span className="tabular-nums">
+                        -{formatMoney(order.walletAmount, order.currency, "en")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">Due on delivery</span>
+                      <span className="tabular-nums">
+                        {formatMoney(
+                          Math.max(0, order.total - order.walletAmount),
+                          order.currency,
+                          "en",
+                        )}
+                      </span>
+                    </div>
+                  </>
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   Paid by {paymentLabel(order.paymentMethod)}
                 </p>

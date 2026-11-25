@@ -41,6 +41,8 @@ const text = {
     freeShipping: 'رایگان',
     tax: 'مالیات',
     total: 'قابل پرداخت',
+    orderTotal: 'جمع کل',
+    wallet: 'کیف پول',
     coupon: 'کد تخفیف',
     payment: 'روش پرداخت',
     note: 'یادداشت مشتری',
@@ -74,6 +76,8 @@ const text = {
     freeShipping: 'Free',
     tax: 'Tax',
     total: 'Amount due',
+    orderTotal: 'Order total',
+    wallet: 'Wallet',
     coupon: 'Coupon',
     payment: 'Payment',
     note: 'Customer note',
@@ -258,7 +262,19 @@ export function InvoiceDocument({
             value={doc.freeShipping || doc.shippingTotal === 0 ? t.freeShipping : money(doc.shippingTotal)}
           />
           {doc.taxTotal > 0 ? <Row label={t.tax} value={money(doc.taxTotal)} /> : null}
-          <Row label={t.total} value={money(doc.total)} strong={true} />
+          {(doc.walletAmount || 0) > 0 ? (
+            <>
+              <Row label={t.orderTotal} value={money(doc.total)} />
+              <Row label={t.wallet} value={money(doc.walletAmount || 0)} />
+              <Row
+                label={t.total}
+                value={money(Math.max(0, doc.total - (doc.walletAmount || 0)))}
+                strong={true}
+              />
+            </>
+          ) : (
+            <Row label={t.total} value={money(doc.total)} strong={true} />
+          )}
         </section>
 
         <footer className="foot">

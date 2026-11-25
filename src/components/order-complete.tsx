@@ -133,7 +133,19 @@ export function OrderComplete({
               {receipt.taxTotal > 0 ? (
                 <ReceiptRow label="Tax" value={money(receipt.taxTotal, receipt.currency)} />
               ) : null}
-              <ReceiptRow label="Total paid" value={money(receipt.total, receipt.currency)} strong />
+              <ReceiptRow label="Total" value={money(receipt.total, receipt.currency)} strong />
+              {receipt.walletAmount > 0 ? (
+                <ReceiptRow
+                  label="Wallet"
+                  value={`-${money(receipt.walletAmount, receipt.currency)}`}
+                />
+              ) : null}
+              {receipt.walletAmount > 0 ? (
+                <ReceiptRow
+                  label="Due on delivery"
+                  value={money(Math.max(0, receipt.total - receipt.walletAmount), receipt.currency)}
+                />
+              ) : null}
             </div>
           ) : null}
           <div className="mt-8 space-y-2 border-t border-dashed border-neutral-300 pt-5">

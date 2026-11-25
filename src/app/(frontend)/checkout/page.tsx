@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/cart-store";
+import { useAuth } from "@/components/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -14,10 +16,14 @@ import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { Country, State, City } from "country-state-city";
 import { playErrorSound, playSuccessSound } from "@/lib/feedback-sounds";
 import { PageShell } from "@/components/page-shell";
+import type { WalletView } from "@/lib/wallet-types";
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { state, subtotal, discountAmount, finalPrice, dispatch } = useCart();
+  const [wallet, setWallet] = useState<WalletView | null>(null);
+  const [useWallet, setUseWallet] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedCity, setSelectedCity] = useState<string>("");
@@ -35,6 +41,46 @@ export default function CheckoutPage() {
   const countries = Country.getAllCountries();
   const states = selectedCountry ? State.getStatesOfCountry(selectedCountry) : [];
   const cities = selectedState ? City.getCitiesOfState(selectedCountry, selectedState) : [];
+
+  const accountEmail = user?.email?.trim().toLowerCase() || "";
+  const emailMatches = Boolean(accountEmail) && email.trim().toLowerCase() === accountEmail;
+  const walletApplied =
+    useWallet && emailMatches && wallet ? Math.min(wallet.balance, finalPrice) : 0;
+  const due = Math.max(0, finalPrice - walletApplied);
+
+  useEffect(() => {
+    if (!user) return;
+    setName((current) => current || [user.firstName, user.lastName].filter(Boolean).join(" "));
+    setEmail((current) => current || user.email);
+    setPhone((current) => current || user.phone);
+  }, [user]);
+
+  useEffect(() => {
+    if (!accountEmail) {
+      setWallet(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/store/account/wallet?email=${encodeURIComponent(accountEmail)}`)
+      .then(async (response) => {
+        const data = (await response.json()) as WalletView;
+        if (!response.ok) throw new Error("wallet");
+        return data;
+      })
+      .then((next) => {
+        if (!cancelled) setWallet(next);
+      })
+      .catch(() => {
+        if (!cancelled) setWallet(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountEmail]);
+
+  useEffect(() => {
+    if (!emailMatches) setUseWallet(false);
+  }, [emailMatches]);
 
   const handleCountryChange = (value: string) => {
     setSelectedCountry(value);
@@ -72,7 +118,8 @@ export default function CheckoutPage() {
           name,
           phone,
           note,
-          paymentMethod: "cod",
+          paymentMethod: walletApplied > 0 ? "wallet" : "cod",
+          useWallet: walletApplied > 0,
           currency: "usd",
           couponCode: state.appliedCoupon?.coupon.code,
           shippingTotal: state.appliedCoupon?.freeShipping ? 0 : 0,
@@ -217,6 +264,33 @@ export default function CheckoutPage() {
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
+            {user ? (
+              <label className="flex items-start gap-3 rounded-lg border p-3">
+                <Checkbox
+                  checked={useWallet}
+                  disabled={!emailMatches || !wallet || wallet.balance <= 0}
+                  onCheckedChange={(checked) => setUseWallet(checked === true)}
+                  className="mt-0.5"
+                />
+                <span className="space-y-1">
+                  <span className="block text-sm font-medium">Pay with wallet</span>
+                  <span className="block text-sm text-muted-foreground">
+                    {wallet
+                      ? `Available $${wallet.balance.toFixed(2)}`
+                      : "Checking your balance…"}
+                    {!emailMatches
+                      ? " Use the email on your account to spend it."
+                      : wallet && wallet.balance <= 0
+                        ? " The shop adds store credit to this account."
+                        : ""}
+                  </span>
+                </span>
+              </label>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Sign in to spend store credit from your wallet.
+              </p>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit" disabled={submitting || !state.items.length}>
               {submitting ? (
@@ -274,6 +348,18 @@ export default function CheckoutPage() {
               <span>Total</span>
               <span>${finalPrice.toFixed(2)}</span>
             </div>
+            {walletApplied > 0 ? (
+              <>
+                <div className="flex items-center justify-between text-sm text-green-600">
+                  <span>Wallet</span>
+                  <span>-${walletApplied.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm font-medium">
+                  <span>Due on delivery</span>
+                  <span>${due.toFixed(2)}</span>
+                </div>
+              </>
+            ) : null}
           </div>
 
           <CouponInput

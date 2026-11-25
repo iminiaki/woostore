@@ -46,6 +46,14 @@ export const t = {
     singular: { en: 'Order', fa: 'سفارش' },
     plural: { en: 'Orders', fa: 'سفارش‌ها' },
   },
+  wallets: {
+    singular: { en: 'Wallet', fa: 'کیف پول' },
+    plural: { en: 'Wallets', fa: 'کیف پول‌ها' },
+  },
+  walletTransactions: {
+    singular: { en: 'Wallet transaction', fa: 'تراکنش کیف پول' },
+    plural: { en: 'Wallet transactions', fa: 'تراکنش‌های کیف پول' },
+  },
   invoices: {
     singular: { en: 'Invoice', fa: 'فاکتور' },
     plural: { en: 'Invoices', fa: 'فاکتورها' },

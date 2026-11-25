@@ -3,6 +3,7 @@ import type { CollectionConfig, Field } from 'payload'
 import { staffOnly } from '@/access/roles'
 import { t } from '@/i18n/admin'
 import { syncOrderDocuments } from '@/lib/invoices'
+import { applyWalletEntry, roundMoney } from '@/lib/wallet'
 
 /**
  * Checkout snapshots stay as they were placed. Staff can change status and the
@@ -24,6 +25,8 @@ const LOCKED_ON_UPDATE = [
   'couponCode',
   'freeShipping',
   'paymentMethod',
+  'walletAmount',
+  'walletRefunded',
   'customerNote',
   'billingName',
   'billingEmail',
@@ -141,6 +144,33 @@ export const Orders: CollectionConfig = {
         }
         data.statusHistory = previousHistory
 
+        return data
+      },
+      async ({ data, originalDoc, operation, req }) => {
+        if (!data || operation !== 'update' || !originalDoc) return data
+
+        const previous = originalDoc as typeof originalDoc & {
+          walletAmount?: number | null
+          walletRefunded?: boolean | null
+        }
+        const walletAmount = roundMoney(Number(previous.walletAmount || 0))
+        if (walletAmount <= 0 || previous.walletRefunded) return data
+
+        const nextStatus = String(data.status || previous.status)
+        const prevStatus = String(previous.status || '')
+        const closing = ['cancelled', 'refunded', 'failed']
+        if (closing.includes(prevStatus) || !closing.includes(nextStatus)) return data
+
+        await applyWalletEntry({
+          payload: req.payload,
+          req,
+          email: String(previous.email || ''),
+          type: 'refund',
+          amount: walletAmount,
+          note: `Refund for ${previous.orderNumber || 'order'}`,
+          orderId: previous.id,
+        })
+        data.walletRefunded = true
         return data
       },
     ],
@@ -494,6 +524,27 @@ export const Orders: CollectionConfig = {
       label: { en: 'Payment method', fa: 'روش پرداخت' },
       defaultValue: 'cod',
       admin: { readOnly: true },
+    },
+    {
+      name: 'walletAmount',
+      type: 'number',
+      defaultValue: 0,
+      min: 0,
+      label: { en: 'Paid from wallet', fa: 'پرداخت از کیف پول' },
+      admin: { readOnly: true, step: 0.01 },
+    },
+    {
+      name: 'walletRefunded',
+      type: 'checkbox',
+      defaultValue: false,
+      label: { en: 'Wallet refunded', fa: 'بازگشت به کیف پول' },
+      admin: {
+        readOnly: true,
+        description: {
+          en: 'Set when a cancelled, failed, or refunded order returns its wallet payment.',
+          fa: 'وقتی سفارش لغو، ناموفق یا بازپرداخت شود، مبلغ کیف پول برمی‌گردد.',
+        },
+      },
     },
     {
       name: 'customerNote',

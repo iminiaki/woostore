@@ -15,6 +15,8 @@ import { Media } from './collections/Media'
 import { Orders } from './collections/Orders'
 import { Products } from './collections/Products'
 import { Users } from './collections/Users'
+import { WalletTransactions } from './collections/WalletTransactions'
+import { Wallets } from './collections/Wallets'
 import { Warehouses } from './collections/Warehouses'
 import { StockAlerts } from './collections/StockAlerts'
 import { Homepage } from './globals/Homepage'
@@ -60,6 +62,8 @@ export default buildConfig({
     Coupons,
     Orders,
     Invoices,
+    Wallets,
+    WalletTransactions,
     StockAlerts,
     Warehouses,
   ],

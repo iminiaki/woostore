@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { APIError } from 'payload'
 
 import { calculateCouponDiscount, type CouponDoc } from '@/lib/coupons'
 import { publicDocumentPath } from '@/lib/invoices'
 import { getPayloadClient } from '@/lib/payload'
+import { applyWalletEntry, roundMoney } from '@/lib/wallet'
 
 type OrderBody = {
   email: string
@@ -10,6 +12,7 @@ type OrderBody = {
   phone?: string
   note?: string
   paymentMethod?: string
+  useWallet?: boolean
   currency?: 'usd' | 'irt'
   couponCode?: string
   shippingTotal?: number
@@ -26,6 +29,10 @@ type OrderBody = {
 }
 
 export async function POST(req: Request) {
+  let walletSpent = 0
+  let walletEmail = ''
+  let orderPlaced = false
+
   try {
     const body = (await req.json()) as OrderBody
     if (!body.email?.trim()) {
@@ -125,7 +132,35 @@ export async function POST(req: Request) {
 
     const shippingTotal = freeShipping ? 0 : Number(body.shippingTotal || 0)
     const taxTotal = 0
-    const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal)
+    const total = roundMoney(Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal))
+
+    if (body.useWallet && (body.currency || 'usd') !== 'usd') {
+      return NextResponse.json({ error: 'Wallet payments are in USD.' }, { status: 400 })
+    }
+
+    let walletAmount = 0
+    let walletTransactionId: number | string | null = null
+    if (body.useWallet && total > 0) {
+      walletEmail = body.email.trim().toLowerCase()
+      const applied = await applyWalletEntry({
+        payload,
+        email: walletEmail,
+        type: 'debit',
+        amount: total,
+        note: 'Checkout',
+        upTo: true,
+      })
+      walletAmount = applied.amount
+      walletTransactionId = applied.id
+      walletSpent = walletAmount
+    }
+
+    const paymentMethod =
+      walletAmount <= 0
+        ? body.paymentMethod || 'cod'
+        : walletAmount + 0.009 >= total
+          ? 'wallet'
+          : 'wallet+cod'
 
     const billing = body.billing || {}
     const shipping = body.shipping || {}
@@ -145,7 +180,9 @@ export async function POST(req: Request) {
         coupon: couponId,
         couponCode,
         freeShipping,
-        paymentMethod: body.paymentMethod || 'cod',
+        paymentMethod,
+        walletAmount,
+        walletRefunded: false,
         customerNote: body.note,
         billingName: billing.name || body.name,
         billingEmail: body.email,
@@ -168,6 +205,24 @@ export async function POST(req: Request) {
       },
       overrideAccess: true,
     })
+    orderPlaced = true
+
+    if (walletTransactionId) {
+      try {
+        await payload.update({
+          collection: 'wallet-transactions',
+          id: walletTransactionId,
+          data: {
+            order: order.id,
+            note: `Order ${order.orderNumber}`,
+          },
+          overrideAccess: true,
+          context: { linkWalletOrder: true },
+        })
+      } catch (err) {
+        console.error('wallet order link', err)
+      }
+    }
 
     let proformaUrl: string | null = null
     let proformaNumber: string | null = null
@@ -198,11 +253,28 @@ export async function POST(req: Request) {
       id: order.id,
       orderNumber: order.orderNumber,
       total: order.total,
+      walletAmount: order.walletAmount || 0,
       status: order.status,
       proformaNumber,
       proformaUrl,
     })
   } catch (err) {
+    if (!orderPlaced && walletSpent > 0 && walletEmail) {
+      try {
+        await applyWalletEntry({
+          payload: await getPayloadClient(),
+          email: walletEmail,
+          type: 'refund',
+          amount: walletSpent,
+          note: 'Checkout reversed because the order was not created',
+        })
+      } catch (refundErr) {
+        console.error('wallet checkout refund', refundErr)
+      }
+    }
+    if (err instanceof APIError && err.status < 500) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     console.error(err)
     return NextResponse.json({ error: 'Failed to place order' }, { status: 500 })
   }

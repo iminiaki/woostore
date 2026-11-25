@@ -91,6 +91,7 @@ type OrderDoc = {
   couponCode?: string | null
   freeShipping?: boolean | null
   paymentMethod?: string | null
+  walletAmount?: number | null
   customerNote?: string | null
   billingName?: string | null
   billingEmail?: string | null
@@ -269,6 +270,7 @@ function snapshotFromOrder(order: OrderDoc, settings: Record<string, unknown>, k
     couponCode: order.couponCode || '',
     freeShipping: Boolean(order.freeShipping),
     paymentMethod: order.paymentMethod || '',
+    walletAmount: Number(order.walletAmount) || 0,
     customerNote: order.customerNote || '',
     footerNote: text(settings.invoiceFooter) || DEFAULT_FOOTER,
   }

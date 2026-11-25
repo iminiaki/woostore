@@ -24,6 +24,7 @@ const lockedOnUpdate = [
   'couponCode',
   'freeShipping',
   'paymentMethod',
+  'walletAmount',
   'customerNote',
   'footerNote',
 ] as const
@@ -300,6 +301,14 @@ export const Invoices: CollectionConfig = {
     { name: 'couponCode', type: 'text', admin: readOnly },
     { name: 'freeShipping', type: 'checkbox', defaultValue: false, admin: readOnly },
     { name: 'paymentMethod', type: 'text', admin: readOnly },
+    {
+      name: 'walletAmount',
+      type: 'number',
+      defaultValue: 0,
+      min: 0,
+      label: { en: 'Paid from wallet', fa: 'پرداخت از کیف پول' },
+      admin: { ...readOnly, step: 0.01 },
+    },
     { name: 'customerNote', type: 'textarea', admin: readOnly },
     {
       name: 'footerNote',

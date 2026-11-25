@@ -62,6 +62,7 @@ export type CustomerOrder = {
   shippingTotal: number
   taxTotal: number
   total: number
+  walletAmount: number
   couponCode?: string | null
   freeShipping: boolean
   paymentMethod?: string | null
@@ -102,6 +103,7 @@ export type OrderReceiptTotals = {
   shippingTotal: number
   taxTotal: number
   total: number
+  walletAmount: number
   paymentMethod: string | null
   createdAt: string
 }
@@ -110,6 +112,8 @@ export function paymentLabel(value?: string | null) {
   if (!value) return "Not recorded"
   if (value === "cod") return "Cash on delivery"
   if (value === "card") return "Card"
+  if (value === "wallet") return "Wallet"
+  if (value === "wallet+cod") return "Wallet and cash on delivery"
   return value
 }
 

@@ -111,6 +111,7 @@ async function loadDocument(number: string, token: string): Promise<InvoiceView 
     couponCode: raw.couponCode,
     freeShipping: raw.freeShipping,
     paymentMethod: raw.paymentMethod,
+    walletAmount: Number(raw.walletAmount || 0),
     customerNote: raw.customerNote,
     footerNote: raw.footerNote,
   }

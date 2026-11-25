@@ -30,6 +30,7 @@ import {
   DOCUMENT_KIND_LABEL,
   DOCUMENT_STATUS_LABEL,
   ORDER_STATUS_LABEL,
+  paymentLabel,
   type CustomerOrder,
   type CustomerOrderStatus,
   type CustomerOrderStatusEvent,
@@ -134,7 +135,7 @@ function detailFor(
   phase: "done" | "running" | "pending",
 ) {
   if (status === "pending") {
-    if (phase === "done") return `Paid by ${order.paymentMethod || "the selected method"}.`
+    if (phase === "done") return `Paid by ${paymentLabel(order.paymentMethod)}.`
     if (phase === "running") return "We are waiting for payment before preparing the order."
     return "Payment confirmation is next."
   }

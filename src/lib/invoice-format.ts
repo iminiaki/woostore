@@ -51,6 +51,7 @@ export type InvoiceView = {
   couponCode?: string | null
   freeShipping?: boolean | null
   paymentMethod?: string | null
+  walletAmount?: number | null
   customerNote?: string | null
   footerNote?: string | null
 }
@@ -63,6 +64,8 @@ const VOID_REASONS: Record<string, { fa: string; en: string }> = {
 
 const PAYMENT_METHODS: Record<string, { fa: string; en: string }> = {
   cod: { fa: 'پرداخت در محل', en: 'Cash on delivery' },
+  wallet: { fa: 'کیف پول', en: 'Wallet' },
+  'wallet+cod': { fa: 'کیف پول و پرداخت در محل', en: 'Wallet and cash on delivery' },
 }
 
 export function formatMoney(amount: number, currency: 'usd' | 'irt', lang: InvoiceLang) {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut } from "lucide-react";
+import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AccountOrdersList } from "@/components/account-orders-list";
+import { AccountWallet } from "@/components/account-wallet";
 import { useWishlist } from "@/components/wishlist-store";
 import { useCart } from "@/components/cart-store";
 import { useAuth } from "@/components/auth-context";
@@ -50,7 +51,7 @@ const defaultSettings: AccountSettings = {
   recommendations: false,
 };
 
-const profileTabs = ["orders", "wishlist", "profile", "settings"] as const;
+const profileTabs = ["orders", "wallet", "wishlist", "profile", "settings"] as const;
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -106,6 +107,7 @@ export default function ProfilePage() {
 
   const tabs = [
     { id: "orders", label: "Orders", icon: Package },
+    { id: "wallet", label: "Wallet", icon: Wallet },
     {
       id: "wishlist",
       label: "Wishlist",
@@ -478,24 +480,28 @@ export default function ProfilePage() {
 
   return (
     <ProtectedRoute>
-      <PageShell className="space-y-8">
-        <div className="mb-6">
-          <Breadcrumbs 
+      <PageShell className="space-y-8 md:space-y-10">
+        <div className="space-y-6">
+          <Breadcrumbs
             items={[
               { label: "Profile" }
-            ]} 
+            ]}
           />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back{user?.firstName ? `, ${user.firstName}` : ""}
-          </p>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Welcome back{user?.firstName ? `, ${user.firstName}` : ""}
+            </p>
+          </div>
         </div>
 
-      <nav aria-label="Account sections" className="border-b border-border/70">
+      <div className="md:grid md:grid-cols-[14rem_minmax(0,1fr)] md:items-start md:gap-x-16">
+      <nav
+        aria-label="Account sections"
+        className="border-b border-border/70 md:sticky md:top-24 md:self-start md:border-0"
+      >
         <div
-          className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 md:mx-0 md:flex-col md:gap-1 md:overflow-visible md:px-0"
           role="tablist"
         >
           {tabs.map((tab) => {
@@ -510,24 +516,27 @@ export default function ProfilePage() {
                 aria-selected={isActive}
                 onClick={(event) => {
                   selectTab(tab.id);
-                  event.currentTarget.scrollIntoView({
-                    behavior: "smooth",
-                    inline: "center",
-                    block: "nearest",
-                  });
+                  if (window.matchMedia("(max-width: 767px)").matches) {
+                    event.currentTarget.scrollIntoView({
+                      behavior: "smooth",
+                      inline: "center",
+                      block: "nearest",
+                    });
+                  }
                 }}
                 className={cn(
                   "relative flex shrink-0 items-center gap-2 px-3 py-3.5 text-sm font-medium transition-colors duration-200",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
+                  "md:w-full md:justify-start md:gap-3 md:rounded-full md:px-4 md:py-2.5",
                   isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground",
+                    ? "text-foreground md:bg-foreground md:text-background"
+                    : "text-muted-foreground hover:text-foreground md:hover:bg-muted",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-4 w-4 transition-transform duration-300",
-                    isActive && "scale-110",
+                    isActive && "scale-110 md:scale-100",
                   )}
                   strokeWidth={isActive ? 2.25 : 1.75}
                 />
@@ -537,7 +546,7 @@ export default function ProfilePage() {
                     className={cn(
                       "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums",
                       isActive
-                        ? "bg-foreground text-background"
+                        ? "bg-foreground text-background md:bg-background md:text-foreground"
                         : "bg-muted text-muted-foreground",
                     )}
                   >
@@ -548,7 +557,7 @@ export default function ProfilePage() {
                   <motion.span
                     layoutId="profile-tab-ink"
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-1 w-9 rounded-full bg-foreground"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-1 w-9 rounded-full bg-foreground md:hidden"
                     transition={{
                       type: "spring",
                       stiffness: 380,
@@ -563,11 +572,13 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      <div className="min-h-[400px]">
+      <div className="min-h-[400px] min-w-0 pt-6 md:pt-1">
         {activeTab === "orders" && renderOrders()}
+        {activeTab === "wallet" && <AccountWallet />}
         {activeTab === "wishlist" && renderWishlist()}
         {activeTab === "profile" && renderProfile()}
         {activeTab === "settings" && renderSettings()}
+      </div>
       </div>
 
       {/* Variant Selector Modal */}
