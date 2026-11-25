@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ImageModal } from "@/components/image-modal";
 import { PageShell } from "@/components/page-shell";
 import { ProductCardCarousel } from "@/components/product-card-carousel";
+import { ProductRatingLink, ProductReviews } from "@/components/product-reviews";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart-store";
 import { useEffect, useMemo, useState } from "react";
@@ -210,6 +211,7 @@ export function ProductDetail({ product }: { product: Product }) {
         <div className="space-y-6">
           <div>
             <h1 className="text-2xl font-semibold">{product.name}</h1>
+            <ProductRatingLink rating={product.rating} count={product.reviews} />
             <p className="text-muted-foreground">
               {[product.brand, product.material].filter(Boolean).join(" • ")}
             </p>
@@ -337,6 +339,8 @@ export function ProductDetail({ product }: { product: Product }) {
           </div>
         </div>
       </div>
+
+      <ProductReviews productId={product.id} />
 
       <ImageModal
         images={displayImages}

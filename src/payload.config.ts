@@ -14,6 +14,7 @@ import { Invoices } from './collections/Invoices'
 import { Media } from './collections/Media'
 import { Orders } from './collections/Orders'
 import { Products } from './collections/Products'
+import { Reviews } from './collections/Reviews'
 import { Users } from './collections/Users'
 import { WalletTransactions } from './collections/WalletTransactions'
 import { Wallets } from './collections/Wallets'
@@ -59,6 +60,7 @@ export default buildConfig({
     Attributes,
     AttributeTerms,
     Products,
+    Reviews,
     Coupons,
     Orders,
     Invoices,

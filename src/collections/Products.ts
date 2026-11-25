@@ -525,6 +525,8 @@ export const Products: CollectionConfig = {
       admin: {
         step: 0.1,
         position: 'sidebar',
+        readOnly: true,
+        description: { en: 'Average of published reviews.', fa: 'میانگین نظرهای منتشرشده.' },
       },
     },
     {
@@ -534,6 +536,21 @@ export const Products: CollectionConfig = {
       min: 0,
       admin: {
         position: 'sidebar',
+        readOnly: true,
+        description: { en: 'Number of published reviews.', fa: 'تعداد نظرهای منتشرشده.' },
+      },
+    },
+    {
+      name: 'customerReviews',
+      type: 'join',
+      collection: 'reviews',
+      on: 'product',
+      label: { en: 'Reviews', fa: 'نظرها' },
+      defaultLimit: 10,
+      defaultSort: '-createdAt',
+      admin: {
+        allowCreate: false,
+        defaultColumns: ['authorName', 'rating', 'status', 'verified', 'createdAt'],
       },
     },
     {

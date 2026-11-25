@@ -62,6 +62,10 @@ export const t = {
     singular: { en: 'Stock alert', fa: 'اعلان موجودی' },
     plural: { en: 'Stock alerts', fa: 'اعلان‌های موجودی' },
   },
+  reviews: {
+    singular: { en: 'Review', fa: 'نظر' },
+    plural: { en: 'Reviews', fa: 'نظرها' },
+  },
   storeSettings: { en: 'Store Settings', fa: 'تنظیمات فروشگاه' },
   homepage: { en: 'Homepage', fa: 'صفحه اصلی' },
   reports: { en: 'Reports', fa: 'گزارش‌ها' },
