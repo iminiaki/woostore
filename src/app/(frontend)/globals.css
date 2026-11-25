@@ -127,6 +127,14 @@
     min-height: 100dvh;
     min-height: -webkit-fill-available;
   }
+  /* Tailwind v4 preflight no longer sets pointer on buttons; restore for links & controls */
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="link"],
+  summary {
+    cursor: pointer;
+  }
 }
 
 @keyframes hero-progress {
@@ -135,5 +143,73 @@
   }
   to {
     width: 100%;
+  }
+}
+
+@keyframes logo-trace-loader-loop {
+  to {
+    stroke-dashoffset: -1;
+  }
+}
+
+@keyframes logo-trace-loader-close {
+  from {
+    stroke-dasharray: 0.16 0.84;
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dasharray: 1 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes trace-shimmer {
+  from {
+    background-position: 200% center;
+  }
+  to {
+    background-position: -200% center;
+  }
+}
+
+@keyframes trace-status-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+
+/* Used by TraceLine status="running" titles */
+.shimmer {
+  background-image: linear-gradient(
+    90deg,
+    currentColor 0%,
+    color-mix(in oklab, currentColor 28%, transparent) 45%,
+    currentColor 90%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: trace-shimmer 1.4s linear infinite;
+}
+
+.trace-status-blink {
+  animation: trace-status-blink 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+    color: inherit;
+    background: none;
+  }
+
+  .trace-status-blink {
+    animation: none;
+    opacity: 1;
   }
 }

@@ -43,11 +43,18 @@ export type CustomerOrderDocument = {
   validUntil?: string | null
 }
 
+export type CustomerOrderStatusEvent = {
+  status: CustomerOrderStatus
+  at: string
+  note?: string | null
+}
+
 export type CustomerOrder = {
   id: number
   orderNumber: string
   status: CustomerOrderStatus
   createdAt: string
+  updatedAt?: string
   currency: "usd" | "irt"
   email: string
   subtotal: number
@@ -63,6 +70,8 @@ export type CustomerOrder = {
   billing: CustomerOrderAddress
   shipping: CustomerOrderAddress
   documents: CustomerOrderDocument[]
+  /** Chronological status events from Payload (dynamic progress source). */
+  statusHistory: CustomerOrderStatusEvent[]
 }
 
 export const ORDER_STATUS_LABEL: Record<CustomerOrderStatus, string> = {

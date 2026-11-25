@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -114,37 +115,6 @@ export default function ProfilePage() {
     { id: "profile", label: "Profile", icon: User },
     { id: "settings", label: "Settings", icon: Settings },
   ] as const;
-
-  const tabListRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-
-  useLayoutEffect(() => {
-    const update = () => {
-      const el = tabRefs.current[activeTab];
-      const list = tabListRef.current;
-      if (!el || !list) return;
-      const listRect = list.getBoundingClientRect();
-      const rect = el.getBoundingClientRect();
-      const fullWidth = rect.width;
-      const width = Math.min(fullWidth * 0.42, 36);
-      const left = rect.left - listRect.left + list.scrollLeft + (fullWidth - width) / 2;
-      setIndicator({ left, width });
-    };
-    update();
-    window.addEventListener("resize", update);
-    const list = tabListRef.current;
-    list?.addEventListener("scroll", update, { passive: true });
-    return () => {
-      window.removeEventListener("resize", update);
-      list?.removeEventListener("scroll", update);
-    };
-  }, [activeTab, wishlistState.items.length]);
-
-  useEffect(() => {
-    const el = tabRefs.current[activeTab];
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [activeTab]);
 
   useEffect(() => {
     if (!user) return;
@@ -523,9 +493,8 @@ export default function ProfilePage() {
           </p>
         </div>
 
-      <nav aria-label="Account sections" className="relative border-b border-border/70">
+      <nav aria-label="Account sections" className="border-b border-border/70">
         <div
-          ref={tabListRef}
           className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
           role="tablist"
         >
@@ -536,13 +505,17 @@ export default function ProfilePage() {
             return (
               <button
                 key={tab.id}
-                ref={(node) => {
-                  tabRefs.current[tab.id] = node;
-                }}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => selectTab(tab.id)}
+                onClick={(event) => {
+                  selectTab(tab.id);
+                  event.currentTarget.scrollIntoView({
+                    behavior: "smooth",
+                    inline: "center",
+                    block: "nearest",
+                  });
+                }}
                 className={cn(
                   "relative flex shrink-0 items-center gap-2 px-3 py-3.5 text-sm font-medium transition-colors duration-200",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
@@ -571,18 +544,23 @@ export default function ProfilePage() {
                     {count}
                   </span>
                 ) : null}
+                {isActive ? (
+                  <motion.span
+                    layoutId="profile-tab-ink"
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-1 w-9 rounded-full bg-foreground"
+                    transition={{
+                      type: "spring",
+                      stiffness: 380,
+                      damping: 26,
+                      mass: 0.7,
+                    }}
+                  />
+                ) : null}
               </button>
             );
           })}
         </div>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute bottom-0 h-1 rounded-full bg-foreground transition-[transform,width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          style={{
-            width: indicator.width,
-            transform: `translateX(${indicator.left}px)`,
-          }}
-        />
       </nav>
 
       <div className="min-h-[400px]">
@@ -697,115 +675,202 @@ export default function ProfilePage() {
           <DialogHeader>
             <DialogTitle>{isAddingNewAddress ? "Add New Address" : "Edit Shipping Address"}</DialogTitle>
           </DialogHeader>
-          
-                      <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Address Title</Label>
-                <Input
-                  id="title"
-                  value={editAddressForm.title}
-                  onChange={(e) => setEditAddressForm({ ...editAddressForm, title: e.target.value })}
-                  placeholder="e.g., Home, Work, Office"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="street">Street Address</Label>
-                <Input
-                  id="street"
-                  value={editAddressForm.street}
-                  onChange={(e) => setEditAddressForm({ ...editAddressForm, street: e.target.value })}
-                  placeholder="Street address"
-                />
-              </div>
-            
+
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const data = new FormData(e.currentTarget);
+              // Prefer FormData so browser autofill is captured even when React state lags.
+              const title = String(data.get("addressTitle") ?? editAddressForm.title).trim();
+              const street = String(data.get("street") ?? editAddressForm.street).trim();
+              const city = String(data.get("city") ?? editAddressForm.city).trim();
+              const state = String(data.get("state") ?? editAddressForm.state).trim();
+              const zipCode = String(data.get("zipCode") ?? editAddressForm.zipCode).trim();
+              const country = String(data.get("country") ?? editAddressForm.country).trim();
+
+              if (!title && !street) {
+                toast.error({
+                  title: "Missing address details",
+                  description: "Add a title and street address.",
+                });
+                return;
+              }
+              if (!title) {
+                toast.error({
+                  title: "Title required",
+                  description: "Add a short label like Home or Work.",
+                });
+                return;
+              }
+              if (!street) {
+                toast.error({
+                  title: "Street address required",
+                  description: "Enter the street address for delivery.",
+                });
+                return;
+              }
+
+              setEditAddressForm((prev) => ({
+                ...prev,
+                title,
+                street,
+                city,
+                state,
+                zipCode,
+                country,
+              }));
+
+              if (isAddingNewAddress) {
+                const newAddress: SavedAddress = {
+                  id: crypto.randomUUID(),
+                  title,
+                  street,
+                  city,
+                  state,
+                  zipCode,
+                  country,
+                  isDefault: addresses.length === 0,
+                };
+                setAddresses([...addresses, newAddress]);
+                toast.success({ title: "Address added" });
+              } else {
+                setAddresses(
+                  addresses.map((addr) =>
+                    addr.id === editAddressForm.id
+                      ? { ...addr, title, street, city, state, zipCode, country }
+                      : addr,
+                  ),
+                );
+                toast.success({ title: "Address saved" });
+              }
+              setIsEditAddressOpen(false);
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="addressTitle">Address Title</Label>
+              <Input
+                id="addressTitle"
+                name="addressTitle"
+                autoComplete="nickname"
+                value={editAddressForm.title}
+                onChange={(e) => setEditAddressForm({ ...editAddressForm, title: e.target.value })}
+                onInput={(e) =>
+                  setEditAddressForm((prev) => ({
+                    ...prev,
+                    title: (e.target as HTMLInputElement).value,
+                  }))
+                }
+                placeholder="e.g., Home, Work, Office"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="addressStreet">Street Address</Label>
+              <Input
+                id="addressStreet"
+                name="street"
+                autoComplete="street-address"
+                value={editAddressForm.street}
+                onChange={(e) => setEditAddressForm({ ...editAddressForm, street: e.target.value })}
+                onInput={(e) =>
+                  setEditAddressForm((prev) => ({
+                    ...prev,
+                    street: (e.target as HTMLInputElement).value,
+                  }))
+                }
+                placeholder="Street address"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="addressCity">City</Label>
                 <Input
-                  id="city"
+                  id="addressCity"
+                  name="city"
+                  autoComplete="address-level2"
                   value={editAddressForm.city}
                   onChange={(e) => setEditAddressForm({ ...editAddressForm, city: e.target.value })}
+                  onInput={(e) =>
+                    setEditAddressForm((prev) => ({
+                      ...prev,
+                      city: (e.target as HTMLInputElement).value,
+                    }))
+                  }
                   placeholder="City"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="addressState">State</Label>
                 <Input
-                  id="state"
+                  id="addressState"
+                  name="state"
+                  autoComplete="address-level1"
                   value={editAddressForm.state}
                   onChange={(e) => setEditAddressForm({ ...editAddressForm, state: e.target.value })}
+                  onInput={(e) =>
+                    setEditAddressForm((prev) => ({
+                      ...prev,
+                      state: (e.target as HTMLInputElement).value,
+                    }))
+                  }
                   placeholder="State"
                 />
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="zipCode">ZIP Code</Label>
+                <Label htmlFor="addressZip">ZIP Code</Label>
                 <Input
-                  id="zipCode"
+                  id="addressZip"
+                  name="zipCode"
+                  autoComplete="postal-code"
                   value={editAddressForm.zipCode}
                   onChange={(e) => setEditAddressForm({ ...editAddressForm, zipCode: e.target.value })}
+                  onInput={(e) =>
+                    setEditAddressForm((prev) => ({
+                      ...prev,
+                      zipCode: (e.target as HTMLInputElement).value,
+                    }))
+                  }
                   placeholder="ZIP code"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="addressCountry">Country</Label>
                 <Input
-                  id="country"
+                  id="addressCountry"
+                  name="country"
+                  autoComplete="country-name"
                   value={editAddressForm.country}
                   onChange={(e) => setEditAddressForm({ ...editAddressForm, country: e.target.value })}
+                  onInput={(e) =>
+                    setEditAddressForm((prev) => ({
+                      ...prev,
+                      country: (e.target as HTMLInputElement).value,
+                    }))
+                  }
                   placeholder="Country"
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-2 pt-4">
-              <Button 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setIsEditAddressOpen(false)}
                 className="flex-1"
               >
                 Cancel
               </Button>
-              <Button 
-                onClick={() => {
-                  const title = editAddressForm.title.trim();
-                  const street = editAddressForm.street.trim();
-                  if (!title || !street) {
-                    toast.error({ title: "Add a title and street address" });
-                    return;
-                  }
-                  if (isAddingNewAddress) {
-                    const newAddress: SavedAddress = {
-                      id: crypto.randomUUID(),
-                      title,
-                      street,
-                      city: editAddressForm.city.trim(),
-                      state: editAddressForm.state.trim(),
-                      zipCode: editAddressForm.zipCode.trim(),
-                      country: editAddressForm.country.trim(),
-                      isDefault: addresses.length === 0,
-                    };
-                    setAddresses([...addresses, newAddress]);
-                    toast({ title: "Address added" });
-                  } else {
-                    setAddresses(addresses.map(addr => 
-                      addr.id === editAddressForm.id 
-                        ? { ...addr, ...editAddressForm, title, street }
-                        : addr
-                    ));
-                    toast({ title: "Address saved" });
-                  }
-                  setIsEditAddressOpen(false);
-                }}
-                className="flex-1"
-              >
+              <Button type="submit" className="flex-1">
                 {isAddingNewAddress ? "Add Address" : "Save Changes"}
               </Button>
             </div>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
       </PageShell>

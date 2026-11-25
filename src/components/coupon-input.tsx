@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { X, Check, AlertCircle } from "lucide-react";
 import { announceCouponApplied } from "@/components/coupon-confetti";
 import { useCart } from "@/components/cart-store";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { playErrorSound } from "@/lib/feedback-sounds";
 
 interface CouponInputProps {
@@ -160,7 +161,17 @@ export function CouponInput({
               disabled={!couponCode.trim() || loading}
               size="sm"
             >
-              {loading ? "…" : "Apply"}
+              {loading ? (
+                <LogoTraceLoader
+                  loading
+                  size={16}
+                  strokeWidth={72}
+                  className="text-current"
+                  ariaLabel="Applying coupon"
+                />
+              ) : (
+                "Apply"
+              )}
             </Button>
           </div>
           {error && (

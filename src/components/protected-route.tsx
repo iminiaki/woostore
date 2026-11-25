@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-context";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -20,8 +21,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <LogoTraceLoader loading size={56} strokeWidth={40} ariaLabel="Loading account" />
       </div>
     );
   }
@@ -32,4 +33,3 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   return <>{children}</>;
 }
-

@@ -7,6 +7,7 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 import { playFeedbackSound, type FeedbackSound } from "@/lib/feedback-sounds"
+import { toastIcons } from "@/lib/toast-icons"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -186,10 +187,10 @@ function toast({ sound = true, ...props }: Toast) {
 }
 
 toast.success = (props: Omit<Toast, "variant" | "sound">) =>
-  toast({ ...props, variant: "default", sound: "success" })
+  toast({ icon: toastIcons.success, ...props, variant: "default", sound: "success" })
 
 toast.error = (props: Omit<Toast, "variant" | "sound">) =>
-  toast({ ...props, variant: "destructive", sound: "error" })
+  toast({ icon: toastIcons.error, ...props, variant: "default", sound: "error" })
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)

@@ -104,11 +104,43 @@ export const Orders: CollectionConfig = {
     ],
     beforeChange: [
       ({ data, originalDoc, operation }) => {
-        if (operation !== 'update' || !data || !originalDoc) return data
+        if (!data) return data
+
+        const now = new Date().toISOString()
+
+        if (operation === 'create') {
+          const initialStatus = String(data.status || 'pending')
+          data.statusHistory = [
+            {
+              status: initialStatus,
+              at: now,
+              note: 'Order placed',
+            },
+          ]
+          return data
+        }
+
+        if (operation !== 'update' || !originalDoc) return data
 
         for (const key of LOCKED_ON_UPDATE) {
           if (originalDoc[key] !== undefined) data[key] = originalDoc[key]
         }
+
+        // Preserve history; append when status changes.
+        const previousHistory = Array.isArray(originalDoc.statusHistory)
+          ? [...originalDoc.statusHistory]
+          : []
+        const nextStatus = data.status !== undefined ? String(data.status) : String(originalDoc.status)
+        const prevStatus = String(originalDoc.status)
+        if (nextStatus !== prevStatus) {
+          previousHistory.push({
+            status: nextStatus,
+            at: now,
+            note: `Status changed to ${nextStatus}`,
+          })
+        }
+        data.statusHistory = previousHistory
+
         return data
       },
     ],
@@ -237,6 +269,44 @@ export const Orders: CollectionConfig = {
           fa: 'فقط داخلی — به مشتری نشان داده نمی‌شود.',
         },
       },
+    },
+    {
+      name: 'statusHistory',
+      type: 'array',
+      label: { en: 'Status history', fa: 'تاریخچه وضعیت' },
+      admin: {
+        readOnly: true,
+        description: {
+          en: 'Auto-logged when the order status changes. Shown on the customer order page.',
+          fa: 'با تغییر وضعیت به‌صورت خودکار ثبت می‌شود و در صفحه سفارش مشتری دیده می‌شود.',
+        },
+      },
+      fields: [
+        {
+          name: 'status',
+          type: 'select',
+          required: true,
+          options: [
+            { label: { en: 'Pending payment', fa: 'در انتظار پرداخت' }, value: 'pending' },
+            { label: { en: 'Processing', fa: 'در حال پردازش' }, value: 'processing' },
+            { label: { en: 'On hold', fa: 'معلق' }, value: 'on-hold' },
+            { label: { en: 'Completed', fa: 'تکمیل‌شده' }, value: 'completed' },
+            { label: { en: 'Cancelled', fa: 'لغوشده' }, value: 'cancelled' },
+            { label: { en: 'Refunded', fa: 'بازپرداخت‌شده' }, value: 'refunded' },
+            { label: { en: 'Failed', fa: 'ناموفق' }, value: 'failed' },
+          ],
+        },
+        {
+          name: 'at',
+          type: 'date',
+          required: true,
+          admin: { date: { pickerAppearance: 'dayAndTime' } },
+        },
+        {
+          name: 'note',
+          type: 'text',
+        },
+      ],
     },
     {
       name: 'currency',

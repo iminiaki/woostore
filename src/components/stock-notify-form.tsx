@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { toast } from "@/components/ui/use-toast";
 import { toastIcons } from "@/lib/toast-icons";
 import { cn } from "@/lib/utils";
@@ -133,7 +134,13 @@ export function StockNotifyForm({
         <Button type="submit" className="w-full" disabled={loading || (!toastOnResult && feedback?.ok)}>
           {loading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <LogoTraceLoader
+                loading
+                size={18}
+                strokeWidth={72}
+                className="mr-2 text-current"
+                ariaLabel="Saving"
+              />
               Saving…
             </>
           ) : (

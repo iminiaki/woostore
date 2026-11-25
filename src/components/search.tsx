@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import type { Product } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -202,7 +203,10 @@ export function Search({ variant = "icon", className }: Props) {
         )}
 
         {query.trim() && loading && (
-          <p className="px-3 py-8 text-center text-sm text-muted-foreground">Searching…</p>
+          <div className="flex flex-col items-center justify-center gap-3 px-3 py-10">
+            <LogoTraceLoader loading size={36} strokeWidth={48} ariaLabel="Searching" />
+            <p className="text-sm text-muted-foreground">Searching…</p>
+          </div>
         )}
 
         {query.trim() && !loading && results.length === 0 && (

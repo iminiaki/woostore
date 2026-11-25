@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, User, Phone } from "lucide-react";
 import { useAuth } from "@/components/auth-context";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { PageShell } from "@/components/page-shell";
 
 export default function SignupPage() {
@@ -354,10 +355,22 @@ export default function SignupPage() {
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading 
-                ? (otpSent ? "Creating account..." : "Sending OTP...") 
-                : (otpSent ? "Create account" : "Send OTP & Continue")
-              }
+              {isLoading ? (
+                <>
+                  <LogoTraceLoader
+                    loading
+                    size={18}
+                    strokeWidth={72}
+                    className="mr-2 text-current"
+                    ariaLabel="Loading"
+                  />
+                  {otpSent ? "Creating account..." : "Sending OTP..."}
+                </>
+              ) : otpSent ? (
+                "Create account"
+              ) : (
+                "Send OTP & Continue"
+              )}
             </Button>
           </form>
 

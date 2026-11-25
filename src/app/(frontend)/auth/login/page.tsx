@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, Mail, Lock, Phone } from "lucide-react";
 import { useAuth } from "@/components/auth-context";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { PageShell } from "@/components/page-shell";
 
 export default function LoginPage() {
@@ -284,10 +285,24 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading 
-                ? (activeTab === "phone" && phoneLoginMethod === "otp" && !otpSent ? "Sending OTP..." : "Signing in...") 
-                : (activeTab === "phone" && phoneLoginMethod === "otp" && !otpSent ? "Send OTP" : "Sign in")
-              }
+              {isLoading ? (
+                <>
+                  <LogoTraceLoader
+                    loading
+                    size={18}
+                    strokeWidth={72}
+                    className="mr-2 text-current"
+                    ariaLabel="Loading"
+                  />
+                  {activeTab === "phone" && phoneLoginMethod === "otp" && !otpSent
+                    ? "Sending OTP..."
+                    : "Signing in..."}
+                </>
+              ) : activeTab === "phone" && phoneLoginMethod === "otp" && !otpSent ? (
+                "Send OTP"
+              ) : (
+                "Sign in"
+              )}
             </Button>
           </form>
 

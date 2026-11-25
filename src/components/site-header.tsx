@@ -100,9 +100,14 @@ export function SiteHeader() {
               "mx-auto flex h-14 w-full items-center px-3 transition-[background-color,box-shadow,border-radius,backdrop-filter,border-color,height] duration-300 sm:h-16 sm:px-4",
               clearGlass
                 ? standalone
-                  ? "rounded-2xl border border-white/15 bg-background/55 shadow-none backdrop-blur-md supports-[backdrop-filter]:bg-background/40 md:rounded-none md:border-transparent md:bg-transparent md:px-4 md:backdrop-blur-none md:supports-[backdrop-filter]:bg-transparent"
+                  // Standalone + translucent status bar: no backdrop-blur — iOS bleeds the
+                  // filter into the status-bar zone and the top of the menu looks frosted.
+                  ? "rounded-2xl border border-white/15 bg-background/70 shadow-none backdrop-blur-none md:rounded-none md:border-transparent md:bg-transparent md:px-4"
                   : "rounded-2xl border border-white/15 bg-background/25 shadow-none backdrop-blur-xl supports-[backdrop-filter]:bg-background/20 md:rounded-none md:border-transparent md:bg-transparent md:px-4 md:backdrop-blur-none md:supports-[backdrop-filter]:bg-transparent"
-                : "rounded-2xl border border-white/25 bg-background/65 shadow-[0_8px_30px_rgba(0,0,0,0.08)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/50 dark:border-white/10 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]",
+                : standalone
+                  // Scrolled dock in PWA: lighter blur + clip so it doesn't smear the notch.
+                  ? "rounded-2xl border border-white/25 bg-background/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-background/65 dark:border-white/10 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)] isolate overflow-hidden"
+                  : "rounded-2xl border border-white/25 bg-background/65 shadow-[0_8px_30px_rgba(0,0,0,0.08)] backdrop-blur-2xl supports-[backdrop-filter]:bg-background/50 dark:border-white/10 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]",
             )}
           >
             <div className="flex flex-1 items-center gap-8 md:gap-12">

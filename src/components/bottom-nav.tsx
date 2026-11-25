@@ -28,7 +28,7 @@ export function BottomNav() {
         // Home-screen: pin near the physical bottom (home indicator overlays the gap).
         // Safari: keep clear of the home indicator.
         paddingBottom: standalone
-          ? "0.4rem"
+          ? "0.9rem"
           : "max(0.75rem, env(safe-area-inset-bottom, 0px))",
       }}
     >

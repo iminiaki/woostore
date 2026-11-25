@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CouponConfetti } from "@/components/coupon-confetti";
 import { CouponInput } from "@/components/coupon-input";
+import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { Country, State, City } from "country-state-city";
 import { playErrorSound, playSuccessSound } from "@/lib/feedback-sounds";
 import { PageShell } from "@/components/page-shell";
@@ -218,7 +219,20 @@ export default function CheckoutPage() {
             />
             {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit" disabled={submitting || !state.items.length}>
-              {submitting ? "Placing order…" : "Place order"}
+              {submitting ? (
+                <>
+                  <LogoTraceLoader
+                    loading
+                    size={18}
+                    strokeWidth={72}
+                    className="mr-2 text-current"
+                    ariaLabel="Placing order"
+                  />
+                  Placing order…
+                </>
+              ) : (
+                "Place order"
+              )}
             </Button>
           </form>
         </div>

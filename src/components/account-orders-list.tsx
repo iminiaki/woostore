@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Image from "next/image"
-import { FileText, Package, RotateCcw } from "lucide-react"
+import { ArrowUpRight, FileText, Package, RotateCcw } from "lucide-react"
 
 import { useAuth } from "@/components/auth-context"
 import { useCart } from "@/components/cart-store"
+import { LogoTraceLoader } from "@/components/LogoTraceLoader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,15 +22,6 @@ function statusVariant(status: CustomerOrder["status"]) {
   if (status === "completed") return "default" as const
   if (status === "cancelled" || status === "failed" || status === "refunded") return "destructive" as const
   return "secondary" as const
-}
-
-function itemMeta(item: CustomerOrder["items"][number]) {
-  const parts = [
-    item.color ? `Color: ${item.color}` : "",
-    item.size ? `Size: ${item.size}` : "",
-    `Qty: ${item.quantity}`,
-  ].filter(Boolean)
-  return parts.join(" · ")
 }
 
 export function AccountOrdersList() {
@@ -94,7 +85,10 @@ export function AccountOrdersList() {
         </Card>
       ) : orders === null ? (
         <Card>
-          <CardContent className="p-8 text-center text-sm text-muted-foreground">Loading your orders…</CardContent>
+          <CardContent className="flex flex-col items-center justify-center gap-3 p-10">
+            <LogoTraceLoader loading size={48} strokeWidth={40} ariaLabel="Loading orders" />
+            <p className="text-sm text-muted-foreground">Loading your orders…</p>
+          </CardContent>
         </Card>
       ) : orders.length === 0 ? (
         <Card>
@@ -108,70 +102,104 @@ export function AccountOrdersList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {orders.map((order) => {
             const open = () => router.push(`/profile/orders/${encodeURIComponent(order.orderNumber)}`)
-            const liveDocs = order.documents.filter((doc) => doc.href)
+            // Prefer the official invoice once it exists; otherwise the live pre-invoice.
+            const primaryDoc =
+              order.documents.find((doc) => doc.kind === "invoice" && doc.href && doc.status !== "void") ||
+              order.documents.find(
+                (doc) => doc.kind === "proforma" && doc.href && doc.status === "issued",
+              ) ||
+              null
+            const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0)
+            const isDone = order.status === "completed"
+            const isBad =
+              order.status === "cancelled" ||
+              order.status === "failed" ||
+              order.status === "refunded"
             return (
-              <Card
+              <article
                 key={order.id}
-                className="cursor-pointer transition-colors hover:bg-muted/40"
+                role="button"
+                tabIndex={0}
                 onClick={open}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    open()
+                  }
+                }}
+                className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_0_rgba(0,0,0,0.04)] transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-[0_12px_28px_rgba(0,0,0,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 dark:shadow-[0_1px_0_rgba(255,255,255,0.04)] dark:hover:shadow-[0_16px_36px_rgba(0,0,0,0.35)]"
               >
-                <CardContent className="p-6">
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-medium">{order.orderNumber}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Placed on {formatDate(order.createdAt, "en")}
+                <div className="flex flex-1 flex-col gap-5 p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span
+                          aria-hidden
+                          className={
+                            isBad
+                              ? "size-2 shrink-0 rounded-full bg-destructive"
+                              : isDone
+                                ? "size-2 shrink-0 rounded-full bg-foreground"
+                                : "size-2 shrink-0 rounded-full bg-foreground/35"
+                          }
+                        />
+                        <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
+                          Order
+                        </p>
+                      </div>
+                      <h3 className="truncate font-mono text-sm font-medium tracking-tight text-foreground">
+                        {order.orderNumber}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(order.createdAt, "en")}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={statusVariant(order.status)} className="mb-2">
-                        {ORDER_STATUS_LABEL[order.status]}
-                      </Badge>
-                      <p className="font-medium">{formatMoney(order.total, order.currency, "en")}</p>
+                    <Badge
+                      variant={statusVariant(order.status)}
+                      className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
+                    >
+                      {ORDER_STATUS_LABEL[order.status]}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-auto flex items-end justify-between gap-3 border-t border-border/60 pt-4">
+                    <div>
+                      <p className="text-[11px] text-muted-foreground">Total</p>
+                      <p className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">
+                        {formatMoney(order.total, order.currency, "en")}
+                      </p>
                     </div>
+                    <p className="pb-1 text-xs text-muted-foreground">
+                      {itemCount} {itemCount === 1 ? "item" : "items"}
+                    </p>
                   </div>
 
-                  <div className="space-y-3">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3">
-                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
-                          {item.image ? (
-                            <Image src={item.image} alt="" fill className="object-cover" sizes="48px" />
-                          ) : null}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{item.title}</p>
-                          <p className="text-xs text-muted-foreground">{itemMeta(item)}</p>
-                          <p className="text-sm font-medium">
-                            {formatMoney(item.lineTotal, order.currency, "en")}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2 border-t pt-4" onClick={(event) => event.stopPropagation()}>
-                    <Button variant="outline" size="sm" onClick={open}>
-                      View details
+                  <div
+                    className="grid grid-cols-2 gap-2"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Button variant="default" size="sm" onClick={open}>
+                      <ArrowUpRight className="size-3.5" />
+                      Details
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => reorder(order)}>
                       <RotateCcw className="size-3.5" />
                       Reorder
                     </Button>
-                    {liveDocs.map((doc) => (
-                      <Button key={doc.number} variant="outline" size="sm" asChild>
-                        <a href={doc.href || "#"} target="_blank" rel="noreferrer">
+                    {primaryDoc ? (
+                      <Button variant="outline" size="sm" className="col-span-2" asChild>
+                        <a href={primaryDoc.href || "#"} target="_blank" rel="noreferrer">
                           <FileText className="size-3.5" />
-                          {DOCUMENT_KIND_LABEL[doc.kind]}
+                          {DOCUMENT_KIND_LABEL[primaryDoc.kind]}
                         </a>
                       </Button>
-                    ))}
+                    ) : null}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </article>
             )
           })}
         </div>

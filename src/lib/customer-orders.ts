@@ -5,6 +5,8 @@ import type {
   CustomerOrder,
   CustomerOrderAddress,
   CustomerOrderDocument,
+  CustomerOrderStatus,
+  CustomerOrderStatusEvent,
   OrderReceiptTotals,
 } from "@/lib/customer-order"
 
@@ -57,6 +59,53 @@ function toDocument(doc: Invoice): CustomerOrderDocument {
   }
 }
 
+const ORDER_STATUSES = new Set<CustomerOrderStatus>([
+  "pending",
+  "processing",
+  "on-hold",
+  "completed",
+  "cancelled",
+  "failed",
+  "refunded",
+])
+
+function toStatusHistory(order: Order): CustomerOrderStatusEvent[] {
+  const raw = (order as Order & {
+    statusHistory?: { status?: string; at?: string; note?: string | null }[] | null
+  }).statusHistory
+
+  const events: CustomerOrderStatusEvent[] = Array.isArray(raw)
+    ? raw
+        .filter((row): row is { status: CustomerOrderStatus; at: string; note?: string | null } =>
+          Boolean(row?.status && row?.at && ORDER_STATUSES.has(row.status as CustomerOrderStatus)),
+        )
+        .map((row) => ({
+          status: row.status as CustomerOrderStatus,
+          at: row.at,
+          note: row.note,
+        }))
+    : []
+
+  // Legacy orders without history: synthesize from created/updated + current status.
+  if (!events.length) {
+    events.push({
+      status: order.status === "pending" ? "pending" : order.status,
+      at: order.createdAt,
+      note: "Order placed",
+    })
+    if (order.status !== "pending" && order.updatedAt && order.updatedAt !== order.createdAt) {
+      // If only one synthetic event and status isn't the "placed" status, keep single event as current.
+      events[0] = {
+        status: order.status,
+        at: order.createdAt,
+        note: "Order placed",
+      }
+    }
+  }
+
+  return events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+}
+
 export function toCustomerOrder(order: Order, invoices: Invoice[]): CustomerOrder {
   const documents = invoices
     .filter((doc) => {
@@ -77,6 +126,7 @@ export function toCustomerOrder(order: Order, invoices: Invoice[]): CustomerOrde
     orderNumber: order.orderNumber,
     status: order.status,
     createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
     currency: order.currency,
     email: order.email,
     subtotal: order.subtotal,
@@ -103,6 +153,7 @@ export function toCustomerOrder(order: Order, invoices: Invoice[]): CustomerOrde
     billing: address(order, "billing"),
     shipping: address(order, "shipping"),
     documents,
+    statusHistory: toStatusHistory(order),
   }
 }
 
