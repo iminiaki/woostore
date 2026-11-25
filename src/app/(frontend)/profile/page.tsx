@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut, Wallet } from "lucide-react";
+import { Package, Heart, User, Settings, Edit, Trash2, Star, LogOut, Wallet, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AccountOrdersList } from "@/components/account-orders-list";
 import { AccountWallet } from "@/components/account-wallet";
+import { AddressLocationField } from "@/components/address-location-field";
 import { useWishlist } from "@/components/wishlist-store";
 import { useCart } from "@/components/cart-store";
 import { useAuth } from "@/components/auth-context";
@@ -33,7 +34,39 @@ type SavedAddress = {
   zipCode: string;
   country: string;
   isDefault: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
+
+const blankAddressForm = {
+  id: "",
+  title: "",
+  street: "",
+  city: "",
+  state: "",
+  zipCode: "",
+  country: "",
+  latitude: null as number | null,
+  longitude: null as number | null,
+};
+
+function readSavedAddress(value: unknown): SavedAddress | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<SavedAddress>;
+  if (typeof raw.id !== "string" || !raw.id) return null;
+  return {
+    id: raw.id,
+    title: typeof raw.title === "string" ? raw.title : "",
+    street: typeof raw.street === "string" ? raw.street : "",
+    city: typeof raw.city === "string" ? raw.city : "",
+    state: typeof raw.state === "string" ? raw.state : "",
+    zipCode: typeof raw.zipCode === "string" ? raw.zipCode : "",
+    country: typeof raw.country === "string" ? raw.country : "",
+    isDefault: Boolean(raw.isDefault),
+    latitude: typeof raw.latitude === "number" && Number.isFinite(raw.latitude) ? raw.latitude : null,
+    longitude: typeof raw.longitude === "number" && Number.isFinite(raw.longitude) ? raw.longitude : null,
+  };
+}
 
 type AccountSettings = {
   orderUpdates: boolean;
@@ -66,6 +99,19 @@ export default function ProfilePage() {
     params.set("tab", id);
     router.replace(`/profile?${params.toString()}`, { scroll: false });
   };
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const pillReady = useRef(false);
+  const [tabPill, setTabPill] = useState<{ top: number; height: number; immediate: boolean } | null>(null);
+
+  useLayoutEffect(() => {
+    const list = tabListRef.current;
+    const active = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !active) return;
+    const top = active.offsetTop;
+    const height = active.offsetHeight;
+    setTabPill({ top, height, immediate: !pillReady.current });
+    pillReady.current = true;
+  }, [activeTab]);
   const [variantSelectorProduct, setVariantSelectorProduct] = useState<any>(null);
   const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -89,15 +135,8 @@ export default function ProfilePage() {
   const [settings, setSettings] = useState<AccountSettings>(defaultSettings);
   const [settingsReady, setSettingsReady] = useState(false);
 
-  const [editAddressForm, setEditAddressForm] = useState({
-    id: "",
-    title: "",
-    street: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
-  });
+  const [editAddressForm, setEditAddressForm] = useState(blankAddressForm);
+  const [addressFormKey, setAddressFormKey] = useState(0);
 
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
 
@@ -135,7 +174,14 @@ export default function ProfilePage() {
     try {
       const rawAddresses = localStorage.getItem(`lastore-addresses:${user.email}`);
       const parsedAddresses = rawAddresses ? JSON.parse(rawAddresses) : [];
-      setAddresses(Array.isArray(parsedAddresses) ? parsedAddresses : []);
+      setAddresses(
+        Array.isArray(parsedAddresses)
+          ? parsedAddresses.flatMap((item) => {
+              const address = readSavedAddress(item);
+              return address ? [address] : [];
+            })
+          : [],
+      );
     } catch {
       setAddresses([]);
     }
@@ -315,7 +361,10 @@ export default function ProfilePage() {
                           state: address.state,
                           zipCode: address.zipCode,
                           country: address.country,
+                          latitude: address.latitude,
+                          longitude: address.longitude,
                         });
+                        setAddressFormKey((key) => key + 1);
                         setIsAddingNewAddress(false);
                         setIsEditAddressOpen(true);
                       }}
@@ -356,6 +405,12 @@ export default function ProfilePage() {
                     </>
                   ) : null}
                 </p>
+                {address.latitude != null && address.longitude != null ? (
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    Location set
+                  </p>
+                ) : null}
                 {address.isDefault && (
                   <div className="inline-flex items-center gap-1 mt-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                     <Star className="h-3 w-3 fill-current" />
@@ -368,15 +423,8 @@ export default function ProfilePage() {
           <Button 
             variant="outline" 
             onClick={() => {
-              setEditAddressForm({
-                id: "",
-                title: "",
-                street: "",
-                city: "",
-                state: "",
-                zipCode: "",
-                country: "",
-              });
+              setEditAddressForm(blankAddressForm);
+              setAddressFormKey((key) => key + 1);
               setIsAddingNewAddress(true);
               setIsEditAddressOpen(true);
             }}
@@ -458,23 +506,6 @@ export default function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
-
-      {/* Logout Section */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            <h3 className="font-medium">Account Actions</h3>
-            <Button 
-              variant="outline" 
-              onClick={logout}
-              className="text-destructive border-destructive hover:bg-destructive hover:text-foreground"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 
@@ -501,9 +532,24 @@ export default function ProfilePage() {
         className="border-b border-border/70 md:sticky md:top-24 md:self-start md:border-0"
       >
         <div
-          className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 md:mx-0 md:flex-col md:gap-1 md:overflow-visible md:px-0"
+          ref={tabListRef}
+          className="relative -mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2 md:mx-0 md:flex-col md:gap-1 md:overflow-visible md:px-0"
           role="tablist"
         >
+          {tabPill ? (
+            <motion.span
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 z-0 hidden rounded-full bg-foreground md:block"
+              style={{ borderRadius: 999 }}
+              initial={false}
+              animate={{ top: tabPill.top, height: tabPill.height }}
+              transition={
+                tabPill.immediate
+                  ? { duration: 0 }
+                  : { duration: 0.28, ease: [0.22, 1, 0.36, 1] }
+              }
+            />
+          ) : null}
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -525,26 +571,26 @@ export default function ProfilePage() {
                   }
                 }}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-2 px-3 py-3.5 text-sm font-medium transition-colors duration-200",
+                  "relative flex shrink-0 items-center gap-2 px-3 py-3.5 text-sm font-medium transition-colors duration-300",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
                   "md:w-full md:justify-start md:gap-3 md:rounded-full md:px-4 md:py-2.5",
                   isActive
-                    ? "text-foreground md:bg-foreground md:text-background"
+                    ? "text-foreground md:text-background"
                     : "text-muted-foreground hover:text-foreground md:hover:bg-muted",
                 )}
               >
                 <Icon
                   className={cn(
-                    "h-4 w-4 transition-transform duration-300",
+                    "relative z-10 h-4 w-4 transition-transform duration-300",
                     isActive && "scale-110 md:scale-100",
                   )}
                   strokeWidth={isActive ? 2.25 : 1.75}
                 />
-                <span>{tab.label}</span>
+                <span className="relative z-10">{tab.label}</span>
                 {count != null ? (
                   <span
                     className={cn(
-                      "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums",
+                      "relative z-10 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums",
                       isActive
                         ? "bg-foreground text-background md:bg-background md:text-foreground"
                         : "bg-muted text-muted-foreground",
@@ -557,7 +603,7 @@ export default function ProfilePage() {
                   <motion.span
                     layoutId="profile-tab-ink"
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-1 w-9 rounded-full bg-foreground md:hidden"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 z-10 mx-auto h-1 w-9 rounded-full bg-foreground md:hidden"
                     transition={{
                       type: "spring",
                       stiffness: 380,
@@ -569,6 +615,18 @@ export default function ProfilePage() {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={logout}
+            className={cn(
+              "relative flex shrink-0 items-center gap-2 px-3 py-3.5 text-sm font-medium text-destructive transition-colors duration-300",
+              "hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
+              "md:w-full md:justify-start md:gap-3 md:rounded-full md:px-4 md:py-2.5 md:hover:bg-destructive/10",
+            )}
+          >
+            <LogOut className="relative z-10 h-4 w-4" strokeWidth={1.75} />
+            <span className="relative z-10">Sign Out</span>
+          </button>
         </div>
       </nav>
 
@@ -682,13 +740,13 @@ export default function ProfilePage() {
 
       {/* Edit Address Modal */}
       <Dialog open={isEditAddressOpen} onOpenChange={setIsEditAddressOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="overflow-hidden sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{isAddingNewAddress ? "Add New Address" : "Edit Shipping Address"}</DialogTitle>
           </DialogHeader>
 
           <form
-            className="space-y-4"
+            className="grid gap-x-6 gap-y-3 sm:grid-cols-[minmax(0,1fr)_17rem] sm:items-stretch"
             onSubmit={(e) => {
               e.preventDefault();
               const data = new FormData(e.currentTarget);
@@ -699,6 +757,7 @@ export default function ProfilePage() {
               const state = String(data.get("state") ?? editAddressForm.state).trim();
               const zipCode = String(data.get("zipCode") ?? editAddressForm.zipCode).trim();
               const country = String(data.get("country") ?? editAddressForm.country).trim();
+              const { latitude, longitude } = editAddressForm;
 
               if (!title && !street) {
                 toast.error({
@@ -741,6 +800,8 @@ export default function ProfilePage() {
                   state,
                   zipCode,
                   country,
+                  latitude,
+                  longitude,
                   isDefault: addresses.length === 0,
                 };
                 setAddresses([...addresses, newAddress]);
@@ -749,7 +810,7 @@ export default function ProfilePage() {
                 setAddresses(
                   addresses.map((addr) =>
                     addr.id === editAddressForm.id
-                      ? { ...addr, title, street, city, state, zipCode, country }
+                      ? { ...addr, title, street, city, state, zipCode, country, latitude, longitude }
                       : addr,
                   ),
                 );
@@ -758,6 +819,7 @@ export default function ProfilePage() {
               setIsEditAddressOpen(false);
             }}
           >
+            <div className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="addressTitle">Address Title</Label>
               <Input
@@ -867,8 +929,21 @@ export default function ProfilePage() {
                 />
               </div>
             </div>
+            </div>
 
-            <div className="flex gap-2 pt-4">
+            <AddressLocationField
+              key={addressFormKey}
+              className="sm:h-full"
+              city={editAddressForm.city}
+              country={editAddressForm.country}
+              latitude={editAddressForm.latitude}
+              longitude={editAddressForm.longitude}
+              onChange={({ latitude, longitude }) =>
+                setEditAddressForm((prev) => ({ ...prev, latitude, longitude }))
+              }
+            />
+
+            <div className="flex gap-2 sm:col-span-2">
               <Button
                 type="button"
                 variant="outline"
