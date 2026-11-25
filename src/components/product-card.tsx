@@ -300,12 +300,28 @@ export function ProductCard({ product }: { product: Product }) {
               <Button
                 variant="secondary"
                 size="icon"
+                aria-label="Add to bag"
                 className="h-8 w-8 flex-shrink-0 border border-border bg-background text-foreground transition-colors hover:bg-accent md:hidden"
                 onClick={handleQuickAdd}
               >
                 <ShoppingCart className="h-4 w-4" />
               </Button>
-            ) : null}
+            ) : (
+              <Button
+                variant="secondary"
+                size="icon"
+                type="button"
+                aria-label="Notify me when available"
+                className="h-8 w-8 flex-shrink-0 border border-border bg-background text-foreground transition-colors hover:bg-accent md:hidden"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setNotifyOpen(true);
+                }}
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>

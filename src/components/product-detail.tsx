@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ImageModal } from "@/components/image-modal";
 import { PageShell } from "@/components/page-shell";
 import { ProductCardCarousel } from "@/components/product-card-carousel";
+import { ProductImageStrip } from "@/components/product-image-strip";
 import { ProductRatingLink, ProductReviews } from "@/components/product-reviews";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/components/cart-store";
@@ -189,23 +190,12 @@ export function ProductDetail({ product }: { product: Product }) {
               key={displayImages[selectedImageIndex] || displayImages[0]}
             />
           </div>
-          {displayImages.length > 1 && (
-            <div className="grid grid-cols-4 gap-3">
-              {displayImages.map((src, i) => (
-                <button
-                  key={`${src}-${i}`}
-                  type="button"
-                  className={cn(
-                    "relative aspect-square overflow-hidden rounded-md bg-muted cursor-pointer hover:opacity-90 transition-opacity border-2",
-                    selectedImageIndex === i ? "border-primary" : "border-transparent",
-                  )}
-                  onClick={() => setSelectedImageIndex(i)}
-                >
-                  <Image src={src} alt={product.name} fill sizes="120px" className="object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
+          <ProductImageStrip
+            images={displayImages}
+            alt={product.name}
+            selected={selectedImageIndex}
+            onSelect={setSelectedImageIndex}
+          />
         </div>
 
         <div className="space-y-6">

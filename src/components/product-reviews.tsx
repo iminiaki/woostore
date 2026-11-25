@@ -264,7 +264,7 @@ export function ProductReviews({ productId }: { productId: string }) {
       <div className="mt-8 grid gap-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <div className="rounded-2xl border border-border/70 bg-card p-5">
           <div className="flex items-end gap-3">
-            <p className="text-4xl font-semibold tabular-nums tracking-tight">
+            <p className="text-6xl font-semibold tabular-nums tracking-tight">
               {summary.count ? summary.average.toFixed(1) : "—"}
             </p>
             <div className="pb-1">
