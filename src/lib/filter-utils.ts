@@ -16,6 +16,7 @@ export function countActiveFilters(
   }
 
   if (params.get("category")) count += 1;
+  if (params.get("clearance") === "1") count += 1;
 
   const subs = params.get("subCategory");
   if (subs) count += subs.split(",").filter(Boolean).length;

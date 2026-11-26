@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useFilterNavigation } from "@/components/filter-navigation";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -38,52 +39,69 @@ export function Filters({
   groups, 
   priceMax,
   categoryOptions,
-  subOptionsByCategory
+  subOptionsByCategory,
+  idPrefix = "",
 }: { 
   groups: Group[]; 
   priceMax: number;
   categoryOptions?: Option[];
   subOptionsByCategory?: Record<string, Option[]>;
+  idPrefix?: string;
 }) {
   const router = useRouter();
+  const navigation = useFilterNavigation();
   const params = useSearchParams();
   const pathname = usePathname();
 
-  const selected = useMemo(() => new URLSearchParams(params.toString()), [params]);
-
-  const toggle = (key: string, value: string) => {
-    const existing = selected.get(key);
-    const set = new Set((existing ? existing.split(",") : []).filter(Boolean));
-    if (set.has(value)) set.delete(value);
-    else set.add(value);
-    if (set.size) selected.set(key, Array.from(set).join(","));
-    else selected.delete(key);
-    router.push(`${pathname}?${selected.toString()}`);
+  const go = (next: URLSearchParams) => {
+    const qs = next.toString();
+    const href = qs ? `${pathname}?${qs}` : pathname;
+    if (navigation) navigation.navigate(href);
+    else router.push(href, { scroll: false });
   };
 
-  const setRange = (min: number, max: number) => {
-    selected.set("minPrice", String(min));
-    selected.set("maxPrice", String(max));
-    router.push(`${pathname}?${selected.toString()}`);
+  const valuesOf = (key: string) =>
+    new Set((params.get(key)?.split(",") || []).filter(Boolean));
+
+  const setMulti = (key: string, value: string, on: boolean) => {
+    const current = valuesOf(key);
+    if (current.has(value) === on) return;
+    const next = new URLSearchParams(params.toString());
+    if (on) current.add(value);
+    else current.delete(value);
+    if (current.size) next.set(key, Array.from(current).join(","));
+    else next.delete(key);
+    go(next);
+  };
+
+  const setRange = (nextMin: number, nextMax: number) => {
+    const currentMin = Number(params.get("minPrice") || 0);
+    const currentMax = Number(params.get("maxPrice") || priceMax);
+    if (nextMin === currentMin && nextMax === currentMax) return;
+    const next = new URLSearchParams(params.toString());
+    if (nextMin <= 0) next.delete("minPrice");
+    else next.set("minPrice", String(nextMin));
+    if (nextMax >= priceMax) next.delete("maxPrice");
+    else next.set("maxPrice", String(nextMax));
+    go(next);
   };
 
   const setSort = (sortBy: SortOption) => {
-    selected.set("sortBy", sortBy);
-    router.push(`${pathname}?${selected.toString()}`);
+    if ((params.get("sortBy") || "newest") === sortBy) return;
+    const next = new URLSearchParams(params.toString());
+    if (sortBy === "newest") next.delete("sortBy");
+    else next.set("sortBy", sortBy);
+    go(next);
   };
 
-  const setCategory = (category: string) => {
-    if (category) selected.set("category", category);
-    else selected.delete("category");
-    // reset subCategory when category changes
-    selected.delete("subCategory");
-    router.push(`${pathname}?${selected.toString()}`);
-  };
-
-  const setSubCategory = (sub: string) => {
-    if (sub) selected.set("subCategory", sub);
-    else selected.delete("subCategory");
-    router.push(`${pathname}?${selected.toString()}`);
+  const setCategory = (category: string, on: boolean) => {
+    const nextValue = on ? category : "";
+    if ((params.get("category") || "") === nextValue) return;
+    const next = new URLSearchParams(params.toString());
+    if (nextValue) next.set("category", nextValue);
+    else next.delete("category");
+    next.delete("subCategory");
+    go(next);
   };
 
   const min = Number(params.get("minPrice") || 0);
@@ -101,6 +119,10 @@ export function Filters({
   // Get all active filters (including category and subCategory)
   const activeFilters = useMemo(() => {
     const filters: Array<{ key: string; value: string; label: string; type: 'category' | 'price' }> = [];
+
+    if (params.get("clearance") === "1") {
+      filters.push({ key: "clearance", value: "1", label: "Clearance", type: "category" });
+    }
 
     // category (single)
     const cat = params.get('category');
@@ -146,32 +168,31 @@ export function Filters({
 
   // Remove a specific filter
   const removeFilter = (filter: typeof activeFilters[0]) => {
+    const next = new URLSearchParams(params.toString());
     if (filter.type === 'price') {
-      selected.delete('minPrice');
-      selected.delete('maxPrice');
+      next.delete('minPrice');
+      next.delete('maxPrice');
     } else {
-      const existing = selected.get(filter.key);
-      const set = new Set((existing ? existing.split(",") : []).filter(Boolean));
+      const set = new Set((next.get(filter.key)?.split(",") || []).filter(Boolean));
       set.delete(filter.value);
-      if (set.size) {
-        selected.set(filter.key, Array.from(set).join(","));
-      } else {
-        selected.delete(filter.key);
-      }
+      if (set.size) next.set(filter.key, Array.from(set).join(","));
+      else next.delete(filter.key);
     }
-    router.push(`${pathname}?${selected.toString()}`);
+    go(next);
   };
 
   // Clear all filters
   const clearAllFilters = () => {
+    const next = new URLSearchParams(params.toString());
     groups.forEach(group => {
-      selected.delete(group.key);
+      next.delete(group.key);
     });
-    selected.delete('minPrice');
-    selected.delete('maxPrice');
-    selected.delete('category');
-    selected.delete('subCategory');
-    router.push(`${pathname}?${selected.toString()}`);
+    next.delete('minPrice');
+    next.delete('maxPrice');
+    next.delete('category');
+    next.delete('subCategory');
+    next.delete('clearance');
+    go(next);
   };
 
   return (
@@ -256,8 +277,8 @@ export function Filters({
                   const checked = params.get('category') === opt.value;
                   return (
                     <div className="flex items-center gap-2" key={opt.value}>
-                      <Checkbox id={`cat-${opt.value}`} checked={checked} onCheckedChange={() => setCategory(checked ? '' : opt.value)} />
-                      <Label htmlFor={`cat-${opt.value}`}>{opt.label}</Label>
+                      <Checkbox id={`${idPrefix}cat-${opt.value}`} checked={checked} onCheckedChange={(state) => setCategory(opt.value, state === true)} />
+                      <Label htmlFor={`${idPrefix}cat-${opt.value}`}>{opt.label}</Label>
                     </div>
                   );
                 })}
@@ -306,8 +327,8 @@ export function Filters({
                       const checked = values.has(opt.value);
                       return (
                         <div className="flex items-center gap-2" key={opt.value}>
-                          <Checkbox id={`sub-${opt.value}`} checked={checked} onCheckedChange={() => toggle('subCategory', opt.value)} />
-                          <Label htmlFor={`sub-${opt.value}`}>{opt.label}</Label>
+                          <Checkbox id={`${idPrefix}sub-${opt.value}`} checked={checked} onCheckedChange={(state) => setMulti('subCategory', opt.value, state === true)} />
+                          <Label htmlFor={`${idPrefix}sub-${opt.value}`}>{opt.label}</Label>
                         </div>
                       );
                     })
@@ -359,9 +380,9 @@ export function Filters({
                     return (
                       <div className="flex items-center gap-2" key={value}>
                         <Checkbox
-                          id={`${g.key}-${value}`}
+                          id={`${idPrefix}${g.key}-${value}`}
                           checked={checked}
-                          onCheckedChange={() => toggle(g.key, value)}
+                          onCheckedChange={(state) => setMulti(g.key, value, state === true)}
                         />
                         {showSwatch ? (
                           <span
@@ -370,7 +391,7 @@ export function Filters({
                             aria-hidden
                           />
                         ) : null}
-                        <Label htmlFor={`${g.key}-${value}`} className="capitalize">
+                        <Label htmlFor={`${idPrefix}${g.key}-${value}`} className="capitalize">
                           {label}
                         </Label>
                       </div>
@@ -408,13 +429,51 @@ export function Filters({
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4">
-              <Slider defaultValue={[min, max]} min={0} max={priceMax} step={5} onValueChange={(v) => setRange(v[0]!, v[1]!)} />
-              <div className="text-sm text-muted-foreground">${min} - ${max}</div>
+              <PriceRange
+                min={min}
+                max={max}
+                priceMax={priceMax}
+                onCommit={setRange}
+              />
             </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
     </div>
+  );
+}
+
+function PriceRange({
+  min,
+  max,
+  priceMax,
+  onCommit,
+}: {
+  min: number;
+  max: number;
+  priceMax: number;
+  onCommit: (min: number, max: number) => void;
+}) {
+  const [value, setValue] = useState<[number, number]>([min, max]);
+
+  useEffect(() => {
+    setValue([min, max]);
+  }, [min, max]);
+
+  return (
+    <>
+      <Slider
+        value={value}
+        min={0}
+        max={priceMax}
+        step={5}
+        onValueChange={(next) => setValue([next[0]!, next[1]!])}
+        onValueCommit={(next) => onCommit(next[0]!, next[1]!)}
+      />
+      <div className="text-sm text-muted-foreground">
+        ${value[0]} - ${value[1]}
+      </div>
+    </>
   );
 }
 

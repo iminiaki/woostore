@@ -5,6 +5,7 @@ const RESERVED_QUERY_KEYS = new Set([
   "category",
   "subCategory",
   "brand",
+  "clearance",
   "minPrice",
   "maxPrice",
   "sortBy",
@@ -17,6 +18,7 @@ export interface ProductQuery {
   brand?: string[];
   /** Dynamic attribute filters keyed by attribute slug */
   attributes?: Record<string, string[]>;
+  clearance?: boolean;
   minPrice?: number;
   maxPrice?: number;
   sortBy?: SortOption;
@@ -42,8 +44,12 @@ export function filterProducts(products: Product[], query: ProductQuery): Produc
     }
 
     if (query.category && p.category !== query.category) return false;
-    if (query.subCategory && p.subCategory !== query.subCategory) return false;
+    if (query.subCategory) {
+      const subs = query.subCategory.split(",").map((s) => s.trim()).filter(Boolean);
+      if (subs.length && !subs.includes(p.subCategory)) return false;
+    }
     if (query.brand?.length && !query.brand.includes(p.brand)) return false;
+    if (query.clearance && !p.clearance) return false;
 
     if (query.attributes) {
       for (const [slug, selected] of Object.entries(query.attributes)) {
@@ -109,12 +115,15 @@ export function parseQuery(
     }
   }
 
+  const clearanceRaw = Array.isArray(params.clearance) ? params.clearance[0] : params.clearance;
+
   return {
     search: typeof params.search === "string" ? params.search : undefined,
     category: typeof params.category === "string" ? params.category : undefined,
     subCategory: typeof params.subCategory === "string" ? params.subCategory : undefined,
     brand: toArray(params.brand),
     attributes: Object.keys(attributes).length ? attributes : undefined,
+    clearance: clearanceRaw === "1" || clearanceRaw === "true",
     minPrice: num(params.minPrice),
     maxPrice: num(params.maxPrice),
     sortBy: (params.sortBy as SortOption) || "newest",

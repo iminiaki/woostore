@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Filter, X, RotateCcw } from "lucide-react";
+import { Filter, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Filters } from "./filters";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
+import { useFilterNavigation } from "@/components/filter-navigation";
 import { countActiveFilters } from "@/lib/filter-utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -23,16 +24,15 @@ type Option = { label: string; value: string };
 export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCategory }: { groups: Group[]; priceMax: number; categoryOptions?: Option[]; subOptionsByCategory?: Record<string, Option[]> }) {
   const [open, setOpen] = useState(false);
   const params = useSearchParams();
-  const router = useRouter();
+  const pathname = usePathname();
+  const navigation = useFilterNavigation();
   const activeFiltersCount = countActiveFilters(
     params,
     groups.map((g) => g.key),
   );
 
   const resetFilters = () => {
-    // Get current pathname and reset all filters
-    const pathname = window.location.pathname;
-    router.push(pathname);
+    if (navigation) navigation.navigate(pathname);
   };
 
   return (
@@ -53,7 +53,7 @@ export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCat
           <DialogTitle>Filters</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto py-4">
-          <Filters groups={groups} priceMax={priceMax} categoryOptions={categoryOptions} subOptionsByCategory={subOptionsByCategory} />
+          <Filters groups={groups} priceMax={priceMax} categoryOptions={categoryOptions} subOptionsByCategory={subOptionsByCategory} idPrefix="dialog-" />
         </div>
         <div className="flex gap-2 pt-4 border-t flex-shrink-0">
           <Button

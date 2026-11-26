@@ -1,5 +1,6 @@
 import { Filters } from "@/components/filters";
 import { FilterModal } from "@/components/filter-modal";
+import { FilterNavigation, FilterResults } from "@/components/filter-navigation";
 import { ProductGrid } from "@/components/product-grid";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { getStoreCategories, getStoreProducts, resolveStoreFilters } from "@/lib/catalog";
@@ -51,7 +52,7 @@ export default async function ShopPage({
       <div className="mb-6">
         <Breadcrumbs items={[{ label: "Shop" }]} />
       </div>
-      <div className="grid gap-10 md:grid-cols-[260px_1fr]">
+      <FilterNavigation className="grid gap-10 md:grid-cols-[260px_1fr]">
         <aside className="hidden md:block md:sticky md:top-[5.5rem] h-max">
           <Filters
             groups={groups}
@@ -66,9 +67,6 @@ export default async function ShopPage({
               <h1 className="text-2xl font-semibold">
                 {query.search ? `Search results for "${query.search}"` : "Shop"}
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {products.length} product{products.length !== 1 ? "s" : ""} found
-              </p>
             </div>
             <FilterModal
               groups={groups}
@@ -77,9 +75,14 @@ export default async function ShopPage({
               subOptionsByCategory={subOptionsByCategory}
             />
           </div>
-          <ProductGrid products={products} />
+          <FilterResults>
+            <p className="text-sm text-muted-foreground">
+              {products.length} product{products.length !== 1 ? "s" : ""} found
+            </p>
+            <ProductGrid products={products} />
+          </FilterResults>
         </section>
-      </div>
+      </FilterNavigation>
     </PageShell>
   );
 }
