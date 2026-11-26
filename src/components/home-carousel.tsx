@@ -23,6 +23,8 @@ type Props<T> = {
   /** Smallest item count that uses the mobile snap carousel. */
   mobileFrom?: number;
   desktopGridClassName?: string;
+  /** Header keeps arrows beside the title. Edges centers them on the card row. */
+  arrowPlacement?: "header" | "edges";
 };
 
 /** Homepage snap carousel: scroll after 4 cards on desktop, and after 1 on mobile. */
@@ -39,6 +41,7 @@ export function HomeCarousel<T>({
   pagesLabel = "Pages",
   mobileFrom = 1,
   desktopGridClassName = "hidden md:grid md:grid-cols-4 md:gap-4",
+  arrowPlacement = "header",
 }: Props<T>) {
   const desktopRef = useRef<HTMLDivElement>(null);
   const mobileRef = useRef<HTMLDivElement>(null);
@@ -106,7 +109,8 @@ export function HomeCarousel<T>({
 
   if (!count) return null;
 
-  const showHeader = Boolean(title || viewAllHref || showDesktopControls);
+  const arrowsInHeader = arrowPlacement === "header" && showDesktopControls;
+  const showHeader = Boolean(title || viewAllHref || arrowsInHeader);
 
   return (
     <section className={className}>
@@ -122,7 +126,7 @@ export function HomeCarousel<T>({
                 View all
               </Link>
             ) : null}
-            {showDesktopControls ? (
+            {arrowsInHeader ? (
               <div className="hidden items-center gap-2 md:flex">
                 <Button
                   type="button"
@@ -196,15 +200,41 @@ export function HomeCarousel<T>({
 
       {showDesktopControls ? (
         <div className="hidden md:block">
-          <div
-            ref={desktopRef}
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {items.map((item) => (
-              <div key={getKey(item)} className="w-[calc((100%-3*1rem)/4)] shrink-0 snap-start">
-                {renderItem(item)}
-              </div>
-            ))}
+          <div className="relative">
+            <div
+              ref={desktopRef}
+              className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {items.map((item) => (
+                <div key={getKey(item)} className="w-[calc((100%-3*1rem)/4)] shrink-0 snap-start">
+                  {renderItem(item)}
+                </div>
+              ))}
+            </div>
+            {arrowPlacement === "edges" && canPrev ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={previousLabel}
+                onClick={() => scrollDesktop(-1)}
+                className="absolute top-1/2 left-3 z-10 size-9 -translate-y-1/2 rounded-full border-border/80 bg-background/90 shadow-sm backdrop-blur-sm"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+            ) : null}
+            {arrowPlacement === "edges" && canNext ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={nextLabel}
+                onClick={() => scrollDesktop(1)}
+                className="absolute top-1/2 right-3 z-10 size-9 -translate-y-1/2 rounded-full border-border/80 bg-background/90 shadow-sm backdrop-blur-sm"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            ) : null}
           </div>
           <div className="mt-5 flex items-center justify-center gap-1.5" role="tablist" aria-label={pagesLabel}>
             {Array.from({ length: desktopPages }, (_, i) => {

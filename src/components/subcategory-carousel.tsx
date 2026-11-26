@@ -60,6 +60,7 @@ export function SubcategoryCarousel({ items }: { items: SubcategoryCard[] }) {
       nextLabel="Next subcategories"
       itemLabel={(index) => `Subcategory ${index + 1}`}
       mobileFrom={2}
+      arrowPlacement="edges"
       desktopGridClassName={desktopGridClassName}
     />
   );
