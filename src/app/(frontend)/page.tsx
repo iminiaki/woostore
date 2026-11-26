@@ -3,6 +3,8 @@ import Link from "next/link";
 import { HomeHero } from "@/components/home-hero";
 import { CategoryCarousel } from "@/components/category-carousel";
 import { ProductCardCarousel } from "@/components/product-card-carousel";
+import { TrustBadges } from "@/components/trust-badges";
+import { ShopCta } from "@/components/shop-cta";
 import { getStoreCategories, getStoreHeroSlides, getStoreProducts } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +23,8 @@ export default async function Home() {
   return (
     <div className="space-y-20">
       <HomeHero slides={heroSlides} />
+
+      <TrustBadges />
 
       <CategoryCarousel
         title="Categories"
@@ -101,8 +105,10 @@ export default async function Home() {
         title="Clearance"
         products={clearance}
         viewAllHref="/shop?clearance=1"
-        className="mx-auto mt-0 max-w-7xl px-4 pb-16"
+        className="mx-auto mt-0 max-w-7xl px-4"
       />
+
+      <ShopCta />
     </div>
   );
 }
