@@ -82,13 +82,13 @@ export function SiteHeader() {
       */}
       <header
         className={cn(
-          "pointer-events-none fixed inset-x-0 top-0 z-50",
+          "pointer-events-none fixed inset-x-0 top-0 z-50 md:transition-[padding] md:duration-500 md:ease-out",
           clearGlass ? "md:px-0" : "md:px-4",
         )}
       >
         <div
           className={cn(
-            "pointer-events-auto mx-auto w-full max-w-7xl px-3 md:px-0",
+            "pointer-events-auto mx-auto w-full max-w-7xl px-3 md:px-0 md:transition-[margin-top] md:duration-500 md:ease-out",
             // Mobile: below status bar. Desktop home clear: flush top.
             clearGlass
               ? "mt-[max(0.5rem,env(safe-area-inset-top,0px))] md:mt-0"
@@ -97,7 +97,7 @@ export function SiteHeader() {
         >
           <div
             className={cn(
-              "mx-auto flex h-14 w-full items-center px-3 transition-[background-color,box-shadow,border-radius,backdrop-filter,border-color,height] duration-300 sm:h-16 sm:px-4",
+              "mx-auto flex h-14 w-full items-center px-3 transition-[background-color,box-shadow,border-radius,backdrop-filter,border-color] duration-300 ease-out sm:h-16 sm:px-4 md:duration-500",
               clearGlass
                 ? standalone
                   // Standalone + translucent status bar: no backdrop-blur — iOS bleeds the
