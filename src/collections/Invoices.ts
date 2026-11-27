@@ -40,6 +40,7 @@ export const Invoices: CollectionConfig = {
     useAsTitle: 'number',
     defaultColumns: ['number', 'kind', 'status', 'orderNumber', 'total', 'issuedAt'],
     group: t.commerce,
+    disableCopyToLocale: true,
     description: {
       en: 'One pre-invoice and one invoice per order. Issued from the order. Snapshots are locked.',
       fa: 'هر سفارش یک پیش‌فاکتور و یک فاکتور دارد. از داخل سفارش صادر می‌شود و بعد از صدور قفل است.',

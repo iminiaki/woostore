@@ -10,6 +10,7 @@ export const Warehouses: CollectionConfig = {
     useAsTitle: 'name',
     defaultColumns: ['name', 'code', 'isDefault'],
     group: t.inventory,
+    disableCopyToLocale: true,
     description: {
       en: 'Multi-warehouse ready. Seed starts with a single default warehouse.',
       fa: 'آماده برای چند انبار. در شروع یک انبار پیش‌فرض ایجاد می‌شود.',
@@ -26,7 +27,6 @@ export const Warehouses: CollectionConfig = {
       name: 'name',
       type: 'text',
       required: true,
-      localized: true,
     },
     {
       name: 'code',

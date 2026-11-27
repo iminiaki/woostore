@@ -10,6 +10,7 @@ export const Coupons: CollectionConfig = {
     useAsTitle: 'code',
     defaultColumns: ['code', 'discountType', 'amount', 'usageCount', 'expiryDate', 'active'],
     group: t.commerce,
+    disableCopyToLocale: true,
   },
   access: {
     create: staffOnly,
@@ -42,7 +43,6 @@ export const Coupons: CollectionConfig = {
     {
       name: 'description',
       type: 'textarea',
-      localized: true,
       label: { en: 'Description', fa: 'توضیحات' },
     },
     {

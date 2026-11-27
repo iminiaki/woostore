@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/locale-provider";
+import { formatLocaleNumber } from "@/i18n/languages";
 import type { HeroSlide } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +15,8 @@ const INTERVAL_MS = 5500;
 const SWIPE_THRESHOLD = 48;
 
 export function HomeHero({ slides }: { slides: HeroSlide[] }) {
+  const { t, active: language } = useI18n();
+  const rtl = language.direction === "rtl";
   const [index, setIndex] = useState(0);
   const [progressOn, setProgressOn] = useState(true);
   const sectionRef = useRef<HTMLElement>(null);
@@ -131,7 +135,7 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
       if (!t) return;
       const dx = t.clientX - s.x;
       if (Math.abs(dx) < SWIPE_THRESHOLD) return;
-      if (dx < 0) goNext();
+      if (rtl ? dx > 0 : dx < 0) goNext();
       else goPrev();
     };
 
@@ -145,7 +149,7 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
       el.removeEventListener("touchend", onEnd);
       el.removeEventListener("touchcancel", onEnd);
     };
-  }, [count, goNext, goPrev]);
+  }, [count, goNext, goPrev, rtl]);
 
   if (!active) return null;
 
@@ -262,25 +266,25 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
             <button
               type="button"
               onClick={goPrev}
-              aria-label="Previous slide"
+              aria-label={t("hero.prev")}
               className="pointer-events-auto text-foreground/50 transition hover:text-foreground"
             >
-              <ChevronLeft className="h-8 w-8 stroke-[1.25]" />
+              <ChevronLeft className="h-8 w-8 stroke-[1.25] rtl:rotate-180" />
             </button>
             <button
               type="button"
               onClick={goNext}
-              aria-label="Next slide"
+              aria-label={t("hero.next")}
               className="pointer-events-auto text-foreground/50 transition hover:text-foreground"
             >
-              <ChevronRight className="h-8 w-8 stroke-[1.25]" />
+              <ChevronRight className="h-8 w-8 stroke-[1.25] rtl:rotate-180" />
             </button>
           </div>
 
           <div
             className="absolute inset-x-0 bottom-[calc(6.25rem+env(safe-area-inset-bottom))] z-10 flex items-center justify-center gap-2 md:bottom-8"
             role="tablist"
-            aria-label="Hero slides"
+            aria-label={t("hero.slides")}
           >
             {slides.map((slide, i) => {
               const isActive = i === safeIndex;
@@ -290,7 +294,7 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  aria-label={`Slide ${i + 1}`}
+                  aria-label={t("hero.slide", { n: formatLocaleNumber(i + 1, language.code) })}
                   onClick={() => goTo(i)}
                   className={cn(
                     "relative overflow-hidden rounded-full bg-foreground/30 transition-[width] duration-300",
@@ -300,7 +304,7 @@ export function HomeHero({ slides }: { slides: HeroSlide[] }) {
                   {isActive && progressOn ? (
                     <span
                       key={`fill-${safeIndex}`}
-                      className="absolute inset-y-0 left-0 rounded-full bg-foreground"
+                      className="absolute inset-y-0 start-0 rounded-full bg-foreground"
                       style={{
                         width: "0%",
                         animation: `hero-progress ${INTERVAL_MS}ms linear forwards`,

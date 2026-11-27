@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Filters } from "./filters";
 import { useSearchParams, usePathname } from "next/navigation";
+import { useI18n } from "@/components/locale-provider";
 import { useFilterNavigation } from "@/components/filter-navigation";
 import { countActiveFilters } from "@/lib/filter-utils";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCat
   const params = useSearchParams();
   const pathname = usePathname();
   const navigation = useFilterNavigation();
+  const { t } = useI18n();
   const activeFiltersCount = countActiveFilters(
     params,
     groups.map((g) => g.key),
@@ -39,10 +41,10 @@ export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCat
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="md:hidden relative">
-          <Filter className="mr-2 h-4 w-4" />
-          Filters
+          <Filter className="me-2 h-4 w-4" />
+          {t("filter.filters")}
           {activeFiltersCount > 0 && (
-            <Badge className="absolute -top-2 -right-2 h-5 min-w-5 justify-center rounded-full px-1 text-[10px] bg-primary text-primary-foreground">
+            <Badge className="absolute -top-2 -end-2 h-5 min-w-5 justify-center rounded-full px-1 text-[10px] bg-primary text-primary-foreground">
               {activeFiltersCount}
             </Badge>
           )}
@@ -50,7 +52,7 @@ export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCat
       </DialogTrigger>
       <DialogContent className="max-w-md w-full max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Filters</DialogTitle>
+          <DialogTitle>{t("filter.filters")}</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto py-4">
           <Filters groups={groups} priceMax={priceMax} categoryOptions={categoryOptions} subOptionsByCategory={subOptionsByCategory} idPrefix="dialog-" />
@@ -62,14 +64,14 @@ export function FilterModal({ groups, priceMax, categoryOptions, subOptionsByCat
             className="flex-1"
             disabled={activeFiltersCount === 0}
           >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
+            <RotateCcw className="h-4 w-4 me-2" />
+            {t("filter.reset")}
           </Button>
           <Button
             onClick={() => setOpen(false)}
             className="flex-1"
           >
-            Apply
+            {t("filter.apply")}
           </Button>
         </div>
       </DialogContent>

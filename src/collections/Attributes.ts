@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { anyone, staffOnly } from '@/access/roles'
+import { contentLanguageField, uniqueSlugPerLanguage } from '@/fields/language'
 import { t } from '@/i18n/admin'
 
 /**
@@ -12,8 +13,9 @@ export const Attributes: CollectionConfig = {
   labels: t.attributes,
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'slug', 'type', 'filterable', 'sortOrder'],
+    defaultColumns: ['name', 'language', 'slug', 'type', 'filterable', 'sortOrder'],
     group: t.catalog,
+    disableCopyToLocale: true,
     description: {
       en: 'Reusable attribute keys (like WooCommerce global attributes).',
       fa: 'کلیدهای ویژگی قابل استفاده مجدد (مشابه ویژگی‌های سراسری ووکامرس).',
@@ -25,12 +27,15 @@ export const Attributes: CollectionConfig = {
     read: anyone,
     update: staffOnly,
   },
+  hooks: {
+    beforeValidate: [uniqueSlugPerLanguage('attributes')],
+  },
   fields: [
+    contentLanguageField,
     {
       name: 'name',
       type: 'text',
       required: true,
-      localized: true,
       admin: {
         description: 'Display name, e.g. Color / رنگ',
       },
@@ -39,7 +44,6 @@ export const Attributes: CollectionConfig = {
       name: 'slug',
       type: 'text',
       required: true,
-      unique: true,
       index: true,
       admin: {
         description: 'Stable key, e.g. color, size (like pa_color in Woo).',

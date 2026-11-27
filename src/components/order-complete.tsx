@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
-import Link from "next/link"
+import { LocaleLink as Link } from "@/components/locale-link"
 import { useReducedMotion } from "framer-motion"
 
 import { ReceiptPrinter, type ReceiptPrinterStage } from "@/components/receipt-printer"

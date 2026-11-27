@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-context";
+import { useI18n } from "@/components/locale-provider";
 import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 
 interface ProtectedRouteProps {
@@ -11,13 +12,14 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { localize } = useI18n();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/auth/login");
+      router.push(localize("/auth/login"));
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, localize, router]);
 
   if (isLoading) {
     return (

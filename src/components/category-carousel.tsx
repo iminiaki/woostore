@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { HomeCarousel } from "@/components/home-carousel";
 import type { Category } from "@/types";

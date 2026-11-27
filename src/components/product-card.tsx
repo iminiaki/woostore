@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,9 @@ import { useMemo, useState } from "react";
 import { getPriceRange, getVariantPrice } from "@/lib/variant-utils";
 import { cn } from "@/lib/utils";
 import { playSuccessSound } from "@/lib/feedback-sounds";
+import { StoreMoney } from "@/components/store-money";
+import { useI18n } from "@/components/locale-provider";
+import { formatLocaleNumber } from "@/i18n/languages";
 
 const FALLBACK_COLOR_CLASS: Record<string, string> = {
   black: "bg-black border border-black",
@@ -37,6 +40,10 @@ export function ProductCard({ product }: { product: Product }) {
   const [notifyOpen, setNotifyOpen] = useState(false);
   const isWishlisted = isInWishlist(product.id);
   const priceRange = useMemo(() => getPriceRange(product), [product]);
+  const { active, t } = useI18n();
+  const price = (amount: number, compare?: number) => (
+    <StoreMoney amount={amount} compare={compare} currency={active.currency} locale={active.code} />
+  );
   const primaryImage = product.images[0] || "/product images/man.jpg";
   const hoverImage = product.images[1] && product.images[1] !== primaryImage ? product.images[1] : null;
 
@@ -153,8 +160,8 @@ export function ProductCard({ product }: { product: Product }) {
 
             {/* Discount Badge */}
             {discountPercentage && (
-              <div className="absolute top-2 left-2 z-10 rounded-md bg-red-600 px-2 py-1 text-xs font-bold text-white shadow-sm transition-transform duration-500 group-hover:scale-105">
-                -{discountPercentage}%
+              <div className="absolute top-2 start-2 z-10 rounded-md bg-red-600 px-2 py-1 text-xs font-bold text-white shadow-sm transition-transform duration-500 group-hover:scale-105">
+                -{formatLocaleNumber(discountPercentage, active.code)}%
               </div>
             )}
 
@@ -163,7 +170,7 @@ export function ProductCard({ product }: { product: Product }) {
               variant="ghost"
               size="icon"
               className={cn(
-                "absolute top-2 right-2 z-10 h-8 w-8 border border-border/80 bg-background/90 backdrop-blur-sm",
+                "absolute top-2 end-2 z-10 h-8 w-8 border border-border/80 bg-background/90 backdrop-blur-sm",
                 "transition-all duration-400 ease-out",
                 "hover:bg-accent group-hover:scale-105 group-hover:shadow-sm",
                 "motion-reduce:transition-none motion-reduce:group-hover:scale-100",
@@ -195,8 +202,8 @@ export function ProductCard({ product }: { product: Product }) {
                 )}
                 onClick={handleQuickAdd}
               >
-                <ShoppingCart className="mr-1.5 h-4 w-4" />
-                Quick Add
+                <ShoppingCart className="me-1.5 h-4 w-4" />
+                {t("product.quickAdd")}
               </Button>
             ) : (
               /* OOS morphs to Notify me on desktop hover; mobile stays Out of Stock */
@@ -204,7 +211,7 @@ export function ProductCard({ product }: { product: Product }) {
                 variant="secondary"
                 size="sm"
                 type="button"
-                aria-label="Out of stock — notify me when available"
+                aria-label={t("product.notifyAria")}
                 className={cn(
                   "absolute bottom-3 left-1/2 z-10 -translate-x-1/2",
                   "border border-border bg-background px-3 py-1.5 font-medium text-muted-foreground",
@@ -234,8 +241,8 @@ export function ProductCard({ product }: { product: Product }) {
                       "motion-reduce:transition-none",
                     )}
                   >
-                    <TriangleAlert className="mr-1 h-4 w-4" />
-                    Out of Stock
+                    <TriangleAlert className="me-1 h-4 w-4" />
+                    {t("product.outOfStock")}
                   </span>
                   <span
                     className={cn(
@@ -247,8 +254,8 @@ export function ProductCard({ product }: { product: Product }) {
                     )}
                     aria-hidden
                   >
-                    <Bell className="mr-1.5 h-4 w-4" />
-                    Notify me
+                    <Bell className="me-1.5 h-4 w-4" />
+                    {t("product.notify")}
                   </span>
                 </span>
               </Button>
@@ -286,12 +293,12 @@ export function ProductCard({ product }: { product: Product }) {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
                   {priceRange.min !== priceRange.max
-                    ? `$${priceRange.min.toFixed(2)} – $${priceRange.max.toFixed(2)}`
-                    : `$${product.price.toFixed(2)}`}
+                    ? price(priceRange.min, priceRange.max)
+                    : price(product.price)}
                 </span>
                 {product.originalPrice && priceRange.min === priceRange.max && (
                   <span className="text-xs text-muted-foreground line-through">
-                    ${product.originalPrice.toFixed(2)}
+                    {price(product.originalPrice)}
                   </span>
                 )}
               </div>
@@ -300,7 +307,7 @@ export function ProductCard({ product }: { product: Product }) {
               <Button
                 variant="secondary"
                 size="icon"
-                aria-label="Add to bag"
+                aria-label={t("product.addToBag")}
                 className="h-8 w-8 flex-shrink-0 border border-border bg-background text-foreground transition-colors hover:bg-accent md:hidden"
                 onClick={handleQuickAdd}
               >
@@ -311,7 +318,7 @@ export function ProductCard({ product }: { product: Product }) {
                 variant="secondary"
                 size="icon"
                 type="button"
-                aria-label="Notify me when available"
+                aria-label={t("product.notifyAria")}
                 className="h-8 w-8 flex-shrink-0 border border-border bg-background text-foreground transition-colors hover:bg-accent md:hidden"
                 onClick={(e) => {
                   e.preventDefault();

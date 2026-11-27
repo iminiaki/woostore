@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { Button } from "@/components/ui/button";

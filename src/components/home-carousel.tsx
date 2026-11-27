@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { scrollCarouselToIndex, useCarouselActive } from "@/hooks/use-carousel-active";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/locale-provider";
 
 const DESKTOP_VISIBLE = 4;
 
@@ -43,6 +44,7 @@ export function HomeCarousel<T>({
   desktopGridClassName = "hidden md:grid md:grid-cols-4 md:gap-4",
   arrowPlacement = "header",
 }: Props<T>) {
+  const { t } = useI18n();
   const desktopRef = useRef<HTMLDivElement>(null);
   const mobileRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
@@ -123,7 +125,7 @@ export function HomeCarousel<T>({
                 href={viewAllHref}
                 className="text-sm text-muted-foreground hover:text-foreground"
               >
-                View all
+                {t("common.viewAll")}
               </Link>
             ) : null}
             {arrowsInHeader ? (

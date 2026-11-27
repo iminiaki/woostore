@@ -10,6 +10,7 @@ export const StockAlerts: CollectionConfig = {
     useAsTitle: 'title',
     defaultColumns: ['title', 'product', 'phone', 'status', 'updatedAt'],
     group: t.commerce,
+    disableCopyToLocale: true,
     description: {
       en: 'Back-in-stock notification requests from the storefront.',
       fa: 'درخواست‌های اعلان موجودی از فروشگاه.',

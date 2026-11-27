@@ -1,21 +1,23 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
+import { LocaleLink as Link } from "@/components/locale-link"
 import { Wallet } from "lucide-react"
 
 import { useAuth } from "@/components/auth-context"
+import { useI18n } from "@/components/locale-provider"
 import { LogoTraceLoader } from "@/components/LogoTraceLoader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatDate, formatMoney } from "@/lib/invoice-format"
+import type { MessageKey } from "@/i18n/messages"
 import type { WalletTransactionView, WalletView } from "@/lib/wallet-types"
 import { cn } from "@/lib/utils"
 
-const TYPE_LABEL: Record<WalletTransactionView["type"], string> = {
-  credit: "Credit",
-  debit: "Purchase",
-  refund: "Refund",
+const TYPE_KEY: Record<WalletTransactionView["type"], MessageKey> = {
+  credit: "wallet.credit",
+  debit: "wallet.debit",
+  refund: "wallet.refund",
 }
 
 function isIncoming(type: WalletTransactionView["type"]) {
@@ -24,6 +26,8 @@ function isIncoming(type: WalletTransactionView["type"]) {
 
 export function AccountWallet() {
   const { user } = useAuth()
+  const { t, active } = useI18n()
+  const lang = active.code.toLowerCase().startsWith("fa") ? "fa" : "en"
   const [wallet, setWallet] = useState<WalletView | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,30 +39,30 @@ export function AccountWallet() {
     fetch(`/api/store/account/wallet?email=${encodeURIComponent(user.email)}`)
       .then(async (response) => {
         const data = (await response.json()) as WalletView & { error?: string }
-        if (!response.ok) throw new Error(data.error || "Could not load the wallet")
+        if (!response.ok) throw new Error("load")
         return data
       })
       .then((next) => {
         if (!cancelled) setWallet(next)
       })
       .catch((err: Error) => {
-        if (!cancelled) setError(err.message)
+        if (!cancelled) setError(t("wallet.loadFailed"))
       })
     return () => {
       cancelled = true
     }
-  }, [user?.email])
+  }, [user?.email, t])
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Wallet</h2>
+      <h2 className="text-xl font-semibold">{t("wallet.title")}</h2>
       {error ? (
         <Card>
           <CardContent className="p-8 text-center text-sm text-muted-foreground">{error}</CardContent>
         </Card>
       ) : !wallet ? (
         <div className="flex justify-center py-16">
-          <LogoTraceLoader loading size={48} strokeWidth={48} ariaLabel="Loading wallet" />
+          <LogoTraceLoader loading size={48} strokeWidth={48} ariaLabel={t("wallet.loading")} />
         </div>
       ) : (
         <>
@@ -66,31 +70,28 @@ export function AccountWallet() {
             <CardContent className="space-y-4 p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Available balance</p>
+                  <p className="text-sm text-muted-foreground">{t("wallet.balance")}</p>
                   <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight">
-                    {formatMoney(wallet.balance, wallet.currency, "en")}
+                    {formatMoney(wallet.balance, wallet.currency, lang)}
                   </p>
                 </div>
                 <span className="grid size-10 place-items-center rounded-full bg-muted">
                   <Wallet className="size-5" />
                 </span>
               </div>
-              <p className="max-w-md text-sm text-muted-foreground">
-                Store credit you can spend at checkout. The shop adds funds; a cancelled or refunded
-                order returns what this wallet paid.
-              </p>
+              <p className="max-w-md text-sm text-muted-foreground">{t("wallet.hint")}</p>
               <Button asChild variant="outline">
-                <Link href="/shop">Browse the shop</Link>
+                <Link href="/shop">{t("wallet.browse")}</Link>
               </Button>
             </CardContent>
           </Card>
 
           <div className="space-y-3">
-            <h3 className="font-medium">Activity</h3>
+            <h3 className="font-medium">{t("wallet.activity")}</h3>
             {wallet.transactions.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center text-sm text-muted-foreground">
-                  No wallet activity yet.
+                  {t("wallet.empty")}
                 </CardContent>
               </Card>
             ) : (
@@ -101,9 +102,9 @@ export function AccountWallet() {
                     return (
                       <div key={entry.id} className="flex items-start justify-between gap-4 px-6 py-4">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium">{TYPE_LABEL[entry.type]}</p>
+                          <p className="text-sm font-medium">{t(TYPE_KEY[entry.type])}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {formatDate(entry.createdAt, "en")}
+                            {formatDate(entry.createdAt, lang)}
                             {entry.note ? ` · ${entry.note}` : ""}
                           </p>
                           {entry.orderNumber ? (
@@ -115,7 +116,7 @@ export function AccountWallet() {
                             </Link>
                           ) : null}
                         </div>
-                        <div className="text-right">
+                        <div className="text-end">
                           <p
                             className={cn(
                               "text-sm font-medium tabular-nums",
@@ -123,10 +124,12 @@ export function AccountWallet() {
                             )}
                           >
                             {incoming ? "+" : "−"}
-                            {formatMoney(entry.amount, wallet.currency, "en")}
+                            {formatMoney(entry.amount, wallet.currency, lang)}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                            Balance {formatMoney(entry.balanceAfter, wallet.currency, "en")}
+                            {t("wallet.balanceAfter", {
+                              amount: formatMoney(entry.balanceAfter, wallet.currency, lang),
+                            })}
                           </p>
                         </div>
                       </div>

@@ -10,6 +10,7 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
     defaultColumns: ['email', 'name', 'role'],
     group: t.system,
+    disableCopyToLocale: true,
   },
   auth: true,
   access: {

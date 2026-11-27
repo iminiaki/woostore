@@ -35,6 +35,75 @@ const COLOR_HEX: Record<string, string> = {
 
 const SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL']
 
+const categoryNameFa: Record<string, string> = {
+  men: 'مردانه',
+  women: 'زنانه',
+  kids: 'بچگانه',
+  accessories: 'اکسسوری',
+  tops: 'بالاتنه',
+  bottoms: 'پایین‌تنه',
+  outerwear: 'لباس بیرونی',
+  dresses: 'پیراهن',
+  bags: 'کیف',
+  hats: 'کلاه',
+}
+
+const brandNameFa: Record<string, string> = {
+  lastore: 'لست‌استور',
+  essential: 'اسنشیال',
+  form: 'فرم',
+  arc: 'آرک',
+}
+
+const colorNameFa: Record<string, string> = {
+  black: 'مشکی',
+  white: 'سفید',
+  navy: 'سرمه‌ای',
+  beige: 'بژ',
+  blue: 'آبی',
+  red: 'قرمز',
+  green: 'سبز',
+  yellow: 'زرد',
+  purple: 'بنفش',
+  pink: 'صورتی',
+  gray: 'خاکستری',
+  brown: 'قهوه‌ای',
+}
+
+const materialNameFa: Record<string, string> = {
+  Cotton: 'نخ',
+  Linen: 'لینن',
+  Denim: 'جین',
+  Wool: 'پشم',
+}
+
+const productNameFa: Array<[string, string]> = [
+  ['Linen Shirt', 'پیراهن لینن'],
+  ['Cotton Tee', 'تی‌شرت نخی'],
+  ['Denim Jacket', 'کت جین'],
+  ['Chino Pants', 'شلوار چینو'],
+  ['Summer Dress', 'پیراهن تابستانی'],
+  ['Casual Blazer', 'بلیزر روزمره'],
+  ['Knit Sweater', 'پلیور بافت'],
+  ['Silk Blouse', 'بلوز ابریشم'],
+]
+
+const faDigits = '۰۱۲۳۴۵۶۷۸۹'
+const faProductDescription = 'پارچه تنفس‌پذیر با برش ساده برای راحتی روزمره.'
+
+function persianProductTitle(name: string) {
+  for (const [en, fa] of productNameFa) {
+    if (!name.startsWith(en)) continue
+    const number = name.slice(en.length).trim()
+    const localNumber = number.replace(/\d/g, (digit) => faDigits[Number(digit)] ?? digit)
+    return localNumber ? `${fa} ${localNumber}` : fa
+  }
+  return name
+}
+
+type LangId = string | number
+type LangPair = { fa: LangId; en: LangId }
+
 async function ensureMedia(payload: Payload, relativePublicPath: string, alt: string) {
   const absolute = path.join(rootDir, 'public', relativePublicPath.replace(/^\//, ''))
   try {
@@ -88,74 +157,111 @@ async function findOrCreateAttribute(
   nameFa: string,
   type: 'select' | 'color' | 'button',
   sortOrder: number,
-) {
-  const found = await payload.find({
-    collection: 'attributes',
-    where: { slug: { equals: slug } },
-    limit: 1,
-    overrideAccess: true,
-  })
-  if (found.docs[0]) {
-    await payload.update({
+): Promise<LangPair> {
+  const pair = {} as LangPair
+  for (const language of ['fa', 'en'] as const) {
+    const found = await payload.find({
       collection: 'attributes',
-      id: found.docs[0].id,
-      data: { filterable: true, type, sortOrder },
+      where: { and: [{ slug: { equals: slug } }, { language: { equals: language } }] },
+      limit: 1,
       overrideAccess: true,
     })
-    return found.docs[0].id
+    if (found.docs[0]) {
+      await payload.update({
+        collection: 'attributes',
+        id: found.docs[0].id,
+        data: { filterable: true, type, sortOrder },
+        overrideAccess: true,
+      })
+      pair[language] = found.docs[0].id
+      continue
+    }
+    const doc = await payload.create({
+      collection: 'attributes',
+      data: {
+        language,
+        name: language === 'fa' ? nameFa : nameEn,
+        slug,
+        type,
+        sortOrder,
+        filterable: true,
+      },
+      overrideAccess: true,
+    })
+    pair[language] = doc.id
   }
-
-  const doc = await payload.create({
-    collection: 'attributes',
-    data: { name: nameEn, slug, type, sortOrder, filterable: true },
-    locale: 'en',
-    overrideAccess: true,
-  })
-  await payload.update({
-    collection: 'attributes',
-    id: doc.id,
-    data: { name: nameFa },
-    locale: 'fa',
-    overrideAccess: true,
-  })
-  return doc.id
+  return pair
 }
 
 async function findOrCreateTerm(
   payload: Payload,
-  attributeId: string | number,
+  attribute: LangPair,
   slug: string,
-  name: string,
+  nameEn: string,
+  nameFa: string,
   sortOrder: number,
   hex?: string,
+): Promise<LangPair> {
+  const pair = {} as LangPair
+  for (const language of ['fa', 'en'] as const) {
+    const found = await payload.find({
+      collection: 'attribute-terms',
+      where: {
+        and: [
+          { attribute: { equals: attribute[language] } },
+          { slug: { equals: slug } },
+          { language: { equals: language } },
+        ],
+      },
+      limit: 1,
+      overrideAccess: true,
+    })
+    if (found.docs[0]) {
+      pair[language] = found.docs[0].id
+      continue
+    }
+    const doc = await payload.create({
+      collection: 'attribute-terms',
+      data: {
+        language,
+        attribute: attribute[language],
+        name: language === 'fa' ? nameFa : nameEn,
+        slug,
+        sortOrder,
+        ...(hex ? { hex } : {}),
+      },
+      overrideAccess: true,
+    })
+    pair[language] = doc.id
+  }
+  return pair
+}
+
+async function ensureCategory(
+  payload: Payload,
+  language: 'fa' | 'en',
+  slug: string,
+  name: string,
+  parent?: LangId,
+  image?: string | number | null,
 ) {
   const found = await payload.find({
-    collection: 'attribute-terms',
-    where: {
-      and: [{ attribute: { equals: attributeId } }, { slug: { equals: slug } }],
-    },
+    collection: 'categories',
+    where: { and: [{ slug: { equals: slug } }, { language: { equals: language } }] },
     limit: 1,
     overrideAccess: true,
   })
   if (found.docs[0]) return found.docs[0].id
 
   const doc = await payload.create({
-    collection: 'attribute-terms',
+    collection: 'categories',
     data: {
-      attribute: attributeId,
+      language,
       name,
       slug,
-      sortOrder,
-      ...(hex ? { hex } : {}),
+      ...(parent != null ? { parent } : {}),
+      ...(image ? { image } : {}),
     },
-    locale: 'en',
-    overrideAccess: true,
-  })
-  await payload.update({
-    collection: 'attribute-terms',
-    id: doc.id,
-    data: { name },
-    locale: 'fa',
     overrideAccess: true,
   })
   return doc.id
@@ -226,6 +332,11 @@ async function seed() {
       defaultLocale: 'fa',
       defaultCurrency: 'IRT',
       enabledCurrencies: ['IRT', 'USD'],
+      websiteLanguages: [
+        { code: 'fa', label: 'فارسی', direction: 'rtl', currency: 'IRT', isDefault: true },
+        { code: 'en', label: 'English', direction: 'ltr', currency: 'USD', isDefault: false },
+      ],
+      unprefixedDefault: false,
       reportingExchangeRate: USD_TO_IRT,
       lowStockThreshold: 5,
       allowBackordersDefault: false,
@@ -258,8 +369,7 @@ async function seed() {
     await payload.update({
       collection: 'warehouses',
       id: wh.id,
-      data: { name: 'Main Warehouse' },
-      locale: 'en',
+      data: { name: 'انبار اصلی' },
       overrideAccess: true,
     })
   }
@@ -280,124 +390,98 @@ async function seed() {
     2,
   )
 
-  const colorTermIds = new Map<string, string | number>()
+  const colorTermIds = new Map<string, LangPair>()
   let colorOrder = 0
   for (const [slug, hex] of Object.entries(COLOR_HEX)) {
-    const id = await findOrCreateTerm(payload, colorAttrId, slug, slug, colorOrder++, hex)
-    colorTermIds.set(slug, id)
+    const pair = await findOrCreateTerm(
+      payload,
+      colorAttrId,
+      slug,
+      slug,
+      colorNameFa[slug] ?? slug,
+      colorOrder++,
+      hex,
+    )
+    colorTermIds.set(slug, pair)
   }
 
-  const sizeTermIds = new Map<string, string | number>()
+  const sizeTermIds = new Map<string, LangPair>()
   for (let i = 0; i < SIZE_ORDER.length; i++) {
-    const name = SIZE_ORDER[i]
-    const id = await findOrCreateTerm(payload, sizeAttrId, name.toLowerCase(), name, i)
-    sizeTermIds.set(name, id)
+    const name = SIZE_ORDER[i]!
+    const pair = await findOrCreateTerm(payload, sizeAttrId, name.toLowerCase(), name, name, i)
+    sizeTermIds.set(name, pair)
   }
 
-  const materialTermIds = new Map<string, string | number>()
+  const materialTermIds = new Map<string, LangPair>()
   for (const [i, name] of ['Cotton', 'Linen', 'Denim', 'Wool'].entries()) {
-    const id = await findOrCreateTerm(payload, materialAttrId, name.toLowerCase(), name, i)
-    materialTermIds.set(name, id)
+    const pair = await findOrCreateTerm(
+      payload,
+      materialAttrId,
+      name.toLowerCase(),
+      name,
+      materialNameFa[name] ?? name,
+      i,
+    )
+    materialTermIds.set(name, pair)
   }
 
-  const brandIdByName = new Map<string, string | number>()
+  const brandIdByName = new Map<string, LangPair>()
   for (const name of brandNames) {
     const slug = name.toLowerCase()
-    const found = await payload.find({
-      collection: 'brands',
-      where: { slug: { equals: slug } },
-      limit: 1,
-      overrideAccess: true,
-    })
-    if (found.docs[0]) {
-      brandIdByName.set(name, found.docs[0].id)
-      continue
-    }
-    const doc = await payload.create({
-      collection: 'brands',
-      data: { name, slug },
-      locale: 'en',
-      overrideAccess: true,
-    })
-    await payload.update({
-      collection: 'brands',
-      id: doc.id,
-      data: { name },
-      locale: 'fa',
-      overrideAccess: true,
-    })
-    brandIdByName.set(name, doc.id)
-  }
-
-  const categoryIdBySlug = new Map<string, string | number>()
-  const subCategoryIdByKey = new Map<string, string | number>()
-
-  for (const cat of mockCategories) {
-    let parentId = categoryIdBySlug.get(cat.slug)
-    if (!parentId) {
+    const pair = {} as LangPair
+    for (const language of ['fa', 'en'] as const) {
       const found = await payload.find({
-        collection: 'categories',
-        where: { slug: { equals: cat.slug } },
+        collection: 'brands',
+        where: { and: [{ slug: { equals: slug } }, { language: { equals: language } }] },
         limit: 1,
         overrideAccess: true,
       })
       if (found.docs[0]) {
-        parentId = found.docs[0].id
-      } else {
-        const imageId = await ensureMedia(payload, cat.image, cat.name)
-        const doc = await payload.create({
-          collection: 'categories',
-          data: {
-            name: cat.name,
-            slug: cat.slug,
-            ...(imageId ? { image: imageId } : {}),
-          },
-          locale: 'en',
-          overrideAccess: true,
-        })
-        await payload.update({
-          collection: 'categories',
-          id: doc.id,
-          data: { name: cat.name },
-          locale: 'fa',
-          overrideAccess: true,
-        })
-        parentId = doc.id
+        pair[language] = found.docs[0].id
+        continue
       }
-      categoryIdBySlug.set(cat.slug, parentId)
+      const doc = await payload.create({
+        collection: 'brands',
+        data: {
+          language,
+          name: language === 'fa' ? (brandNameFa[slug] ?? name) : name,
+          slug,
+        },
+        overrideAccess: true,
+      })
+      pair[language] = doc.id
+    }
+    brandIdByName.set(name, pair)
+  }
+
+  const categoryIdBySlug = new Map<string, LangPair>()
+  const subCategoryIdByKey = new Map<string, LangPair>()
+
+  for (const cat of mockCategories) {
+    let parent = categoryIdBySlug.get(cat.slug)
+    if (!parent) {
+      const imageId = await ensureMedia(payload, cat.image, cat.name)
+      parent = {
+        fa: await ensureCategory(payload, 'fa', cat.slug, categoryNameFa[cat.slug] ?? cat.name, undefined, imageId),
+        en: await ensureCategory(payload, 'en', cat.slug, cat.name, undefined, imageId),
+      }
+      categoryIdBySlug.set(cat.slug, parent)
     }
 
     for (const sub of cat.subCategories) {
       const key = `${cat.slug}/${sub.slug}`
       const subSlug = `${cat.slug}-${sub.slug}`
-      const found = await payload.find({
-        collection: 'categories',
-        where: { slug: { equals: subSlug } },
-        limit: 1,
-        overrideAccess: true,
+      if (subCategoryIdByKey.has(key)) continue
+      subCategoryIdByKey.set(key, {
+        fa: await ensureCategory(
+          payload,
+          'fa',
+          subSlug,
+          categoryNameFa[sub.slug] ?? sub.name,
+          parent.fa,
+        ),
+        en: await ensureCategory(payload, 'en', subSlug, sub.name, parent.en),
       })
-      if (found.docs[0]) {
-        subCategoryIdByKey.set(key, found.docs[0].id)
-        continue
-      }
-      const doc = await payload.create({
-        collection: 'categories',
-        data: {
-          name: sub.name,
-          slug: subSlug,
-          parent: parentId,
-        },
-        locale: 'en',
-        overrideAccess: true,
-      })
-      await payload.update({
-        collection: 'categories',
-        id: doc.id,
-        data: { name: sub.name },
-        locale: 'fa',
-        overrideAccess: true,
-      })
-      subCategoryIdByKey.set(key, doc.id)
     }
   }
 
@@ -421,144 +505,137 @@ async function seed() {
 
     const categoryId = categoryIdBySlug.get(product.category)
     const subCategoryId = subCategoryIdByKey.get(`${product.category}/${product.subCategory}`)
-    const colorTerms = product.colors
-      .map((c) => colorTermIds.get(c))
-      .filter(Boolean) as (string | number)[]
-    const sizeTerms = product.sizes
-      .map((s) => sizeTermIds.get(s))
-      .filter(Boolean) as (string | number)[]
-    const materialTerm = materialTermIds.get(product.material)
-
     const hasVariants = Boolean(product.variants?.length)
 
-    const variants =
-      product.variants
-        ?.map((v, idx) => {
-          const colorId = v.color ? colorTermIds.get(v.color) : undefined
-          const sizeId = v.size ? sizeTermIds.get(v.size) : undefined
-          if (!colorId || !sizeId) return null
+    for (const language of ['fa', 'en'] as const) {
+      const colorTerms = product.colors
+        .map((c) => colorTermIds.get(c)?.[language])
+        .filter((id): id is LangId => id != null)
+      const sizeTerms = product.sizes
+        .map((s) => sizeTermIds.get(s)?.[language])
+        .filter((id): id is LangId => id != null)
+      const materialTerm = materialTermIds.get(product.material)?.[language]
 
-          // Alternate variant image: use 2nd gallery image when present
-          const variantImage = imageIds[idx % imageIds.length]
+      const variants =
+        product.variants
+          ?.map((v, idx) => {
+            const colorId = v.color ? colorTermIds.get(v.color)?.[language] : undefined
+            const sizeId = v.size ? sizeTermIds.get(v.size)?.[language] : undefined
+            if (!colorId || !sizeId) return null
 
-          return {
-            attributeValues: [
-              { attribute: colorAttrId, term: colorId },
-              { attribute: sizeAttrId, term: sizeId },
-            ],
-            sku: `${product.id}-${v.color}-${v.size}-${idx + 1}`.toUpperCase(),
-            image: variantImage,
-            prices: toPrices(v.price),
-            compareAtPrices: toCompare(v.originalPrice),
-            stock: v.inStock ? 25 : 0,
-            inStock: v.inStock,
-            allowBackorder: false,
-          }
-        })
-        .filter(Boolean) || []
+            const variantImage = imageIds[idx % imageIds.length]
+            const sku = `${product.id}-${v.color}-${v.size}-${idx + 1}`.toUpperCase()
 
-    const doc = await payload.create({
-      collection: 'products',
-      data: {
-        title: product.name,
-        slug: product.id,
-        productType: hasVariants ? 'variable' : 'simple',
-        description: product.description,
-        images: imageIds,
-        category: categoryId!,
-        ...(subCategoryId ? { subCategory: subCategoryId } : {}),
-        brand: brandIdByName.get(product.brand),
-        sku: product.id.toUpperCase(),
-        prices: toPrices(product.price),
-        compareAtPrices: toCompare(product.originalPrice),
-        attributes: [
-          {
-            attribute: colorAttrId,
-            terms: colorTerms,
-            visible: true,
-            usedForVariations: hasVariants,
-          },
-          {
-            attribute: sizeAttrId,
-            terms: sizeTerms,
-            visible: true,
-            usedForVariations: hasVariants,
-          },
-          ...(materialTerm
-            ? [
-                {
-                  attribute: materialAttrId,
-                  terms: [materialTerm],
+            return {
+              attributeValues: [
+                { attribute: colorAttrId[language], term: colorId },
+                { attribute: sizeAttrId[language], term: sizeId },
+              ],
+              sku: language === 'en' ? `${sku}-EN` : sku,
+              image: variantImage,
+              prices: toPrices(v.price),
+              compareAtPrices: toCompare(v.originalPrice),
+              stock: v.inStock ? 25 : 0,
+              inStock: v.inStock,
+              allowBackorder: false,
+            }
+          })
+          .filter((row) => row != null) || []
+
+      await payload.create({
+        collection: 'products',
+        data: {
+          language,
+          title: language === 'fa' ? persianProductTitle(product.name) : product.name,
+          slug: product.id,
+          productType: hasVariants ? 'variable' : 'simple',
+          description: language === 'fa' ? faProductDescription : product.description,
+          images: imageIds,
+          category: categoryId![language],
+          ...(subCategoryId ? { subCategory: subCategoryId[language] } : {}),
+          brand: brandIdByName.get(product.brand)?.[language],
+          sku: language === 'en' ? `${product.id.toUpperCase()}-EN` : product.id.toUpperCase(),
+          prices: toPrices(product.price),
+          compareAtPrices: toCompare(product.originalPrice),
+          attributes: [
+            {
+              attribute: colorAttrId[language],
+              terms: colorTerms,
+              visible: true,
+              usedForVariations: hasVariants,
+            },
+            {
+              attribute: sizeAttrId[language],
+              terms: sizeTerms,
+              visible: true,
+              usedForVariations: hasVariants,
+            },
+            ...(materialTerm
+              ? [
+                  {
+                    attribute: materialAttrId[language],
+                    terms: [materialTerm],
+                    visible: true,
+                    usedForVariations: false,
+                  },
+                ]
+              : []),
+          ],
+          customAttributes: [
+            language === 'fa'
+              ? {
+                  name: 'مراقبت',
+                  values: ['شستشو با آب سرد', 'سفیدکننده ممنوع'],
                   visible: true,
-                  usedForVariations: false,
+                }
+              : {
+                  name: 'Care',
+                  values: ['Machine wash cold', 'Do not bleach'],
+                  visible: true,
                 },
-              ]
-            : []),
-        ],
-        customAttributes: [
-          {
-            name: 'Care',
-            values: ['Machine wash cold', 'Do not bleach'],
-            visible: true,
-          },
-        ],
-        variants,
-        stock: product.inStock ? 40 : 0,
-        inStock: product.inStock,
-        featured: product.featured,
-        newArrival: product.newArrival,
-        clearance: product.clearance,
-        rating: product.rating,
-        reviewCount: product.reviews,
-        tags: product.tags,
-        legacyId: product.id,
-        _status: 'published',
-      },
-      locale: 'en',
-      overrideAccess: true,
-    })
-
-    await payload.update({
-      collection: 'products',
-      id: doc.id,
-      data: {
-        title: product.name,
-        description: product.description,
-        customAttributes: [
-          {
-            name: 'مراقبت',
-            values: ['شستشو با آب سرد', 'سفیدکننده ممنوع'],
-            visible: true,
-          },
-        ],
-      },
-      locale: 'fa',
-      overrideAccess: true,
-    })
+          ],
+          variants,
+          stock: product.inStock ? 40 : 0,
+          inStock: product.inStock,
+          featured: product.featured,
+          newArrival: product.newArrival,
+          clearance: product.clearance,
+          rating: product.rating,
+          reviewCount: product.reviews,
+          tags: product.tags,
+          legacyId: language === 'en' ? `${product.id}-en` : product.id,
+          _status: 'published',
+        },
+        overrideAccess: true,
+      })
+    }
   }
 
-  // —— Related / cross-sells (demo links) ——
-  const published = await payload.find({
-    collection: 'products',
-    limit: 12,
-    depth: 0,
-    locale: 'en',
-    overrideAccess: true,
-  })
-  const productIds = published.docs.map((d) => d.id)
-  for (let i = 0; i < Math.min(productIds.length, 8); i++) {
-    const id = productIds[i]!
-    const related = productIds.filter((_, idx) => idx !== i).slice(i % 3, (i % 3) + 3)
-    const cross = productIds.filter((_, idx) => idx !== i).slice((i + 2) % 4, (i + 2) % 4 + 2)
-    await payload.update({
+  // —— Related / cross-sells (demo links), kept inside each language ——
+  for (const language of ['fa', 'en'] as const) {
+    const published = await payload.find({
       collection: 'products',
-      id,
-      data: {
-        relatedProducts: related,
-        crossSells: cross,
-      },
+      limit: 12,
+      depth: 0,
+      sort: 'slug',
       overrideAccess: true,
+      where: { and: [{ language: { equals: language } }, { _status: { equals: 'published' } }] },
     })
+    const productIds = published.docs.map((d) => d.id)
+    for (let i = 0; i < Math.min(productIds.length, 8); i++) {
+      const id = productIds[i]!
+      const related = productIds.filter((_, idx) => idx !== i).slice(i % 3, (i % 3) + 3)
+      const cross = productIds.filter((_, idx) => idx !== i).slice((i + 2) % 4, (i + 2) % 4 + 2)
+      await payload.update({
+        collection: 'products',
+        id,
+        data: {
+          relatedProducts: related,
+          crossSells: cross,
+        },
+        overrideAccess: true,
+      })
+    }
   }
 
   // —— Coupons ——
@@ -633,8 +710,8 @@ async function seed() {
       collection: 'products',
       limit: 8,
       depth: 1,
-      locale: 'en',
       overrideAccess: true,
+      where: { language: { equals: 'en' } },
     })
 
     const customers = [

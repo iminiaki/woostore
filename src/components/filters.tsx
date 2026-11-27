@@ -7,12 +7,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { X } from "lucide-react";
-import type { SortOption } from "@/types";
+import { useI18n } from "@/components/locale-provider";
+import { StoreMoney } from "@/components/store-money";
+import { formatLocaleNumber } from "@/i18n/languages";
 
 type Group = {
   key: string;
@@ -52,6 +53,8 @@ export function Filters({
   const navigation = useFilterNavigation();
   const params = useSearchParams();
   const pathname = usePathname();
+  const { t, active } = useI18n();
+  const digits = (value: number) => formatLocaleNumber(value, active.code);
 
   const go = (next: URLSearchParams) => {
     const qs = next.toString();
@@ -86,14 +89,6 @@ export function Filters({
     go(next);
   };
 
-  const setSort = (sortBy: SortOption) => {
-    if ((params.get("sortBy") || "newest") === sortBy) return;
-    const next = new URLSearchParams(params.toString());
-    if (sortBy === "newest") next.delete("sortBy");
-    else next.set("sortBy", sortBy);
-    go(next);
-  };
-
   const setCategory = (category: string, on: boolean) => {
     const nextValue = on ? category : "";
     if ((params.get("category") || "") === nextValue) return;
@@ -121,7 +116,7 @@ export function Filters({
     const filters: Array<{ key: string; value: string; label: string; type: 'category' | 'price' }> = [];
 
     if (params.get("clearance") === "1") {
-      filters.push({ key: "clearance", value: "1", label: "Clearance", type: "category" });
+      filters.push({ key: "clearance", value: "1", label: t("filter.clearance"), type: "category" });
     }
 
     // category (single)
@@ -164,7 +159,7 @@ export function Filters({
     }
 
     return filters;
-  }, [params, groups, isPriceActive, min, max, categoryOptions, subOptionsByCategory]);
+  }, [params, groups, isPriceActive, min, max, categoryOptions, subOptionsByCategory, t]);
 
   // Remove a specific filter
   const removeFilter = (filter: typeof activeFilters[0]) => {
@@ -201,14 +196,14 @@ export function Filters({
       {activeFilters.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Active Filters</h3>
+            <h3 className="text-sm font-medium">{t("filter.active")}</h3>
             <Button
               variant="ghost"
               size="sm"
               onClick={clearAllFilters}
               className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              Clear all
+              {t("filter.clearAll")}
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -233,25 +228,13 @@ export function Filters({
         </div>
       )}
 
-      <Select onValueChange={(v) => setSort(v as SortOption)} defaultValue={(params.get("sortBy") as string) || "newest"}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Sort by" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="newest">Newest</SelectItem>
-          <SelectItem value="top-sells">Top sells</SelectItem>
-          <SelectItem value="price-low-high">Price: Low to high</SelectItem>
-          <SelectItem value="price-high-low">Price: High to low</SelectItem>
-        </SelectContent>
-      </Select>
-
       <Accordion type="multiple" className="w-full">
         {/* Category Accordion */}
         {categoryOptions && (
           <AccordionItem value="category">
             <AccordionTrigger asChild>
               <button className="flex w-full items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180">
-                <span>Category</span>
+                <span>{t("filter.category")}</span>
                 <div className="flex items-center gap-2">
                   {params.get('category') && (
                     <Badge className="h-5 min-w-5 justify-center rounded-sm px-1 text-[10px] bg-primary text-primary-foreground">1</Badge>
@@ -292,11 +275,11 @@ export function Filters({
           <AccordionItem value="subCategory">
             <AccordionTrigger asChild>
               <button className="flex w-full items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180">
-                <span>Subcategory</span>
+                <span>{t("filter.subcategory")}</span>
                 <div className="flex items-center gap-2">
                   {getActiveCount('subCategory') > 0 && (
                     <Badge className="h-5 min-w-5 justify-center rounded-sm px-1 text-[10px] bg-primary text-primary-foreground">
-                      {getActiveCount('subCategory')}
+                      {digits(getActiveCount("subCategory"))}
                     </Badge>
                   )}
                   <svg
@@ -333,7 +316,7 @@ export function Filters({
                       );
                     })
                   ) : (
-                    <div className="text-xs text-muted-foreground">Select a category to see subcategories</div>
+                    <div className="text-xs text-muted-foreground">{t("filter.pickCategory")}</div>
                   );
                 })()}
               </div>
@@ -350,7 +333,7 @@ export function Filters({
                   <div className="flex items-center gap-2">
                     {activeCount > 0 && (
                       <Badge className="h-5 min-w-5 justify-center rounded-sm px-1 text-[10px] bg-primary text-primary-foreground">
-                        {activeCount}
+                        {digits(activeCount)}
                       </Badge>
                     )}
                     <svg
@@ -405,7 +388,7 @@ export function Filters({
         <AccordionItem value="price">
           <AccordionTrigger asChild>
             <button className="flex w-full items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180">
-              <span>Price</span>
+              <span>{t("filter.price")}</span>
               <div className="flex items-center gap-2">
                 {isPriceActive && (
                   <Badge className="h-5 min-w-5 justify-center rounded-sm px-1 text-[10px] bg-primary text-primary-foreground">
@@ -454,7 +437,9 @@ function PriceRange({
   priceMax: number;
   onCommit: (min: number, max: number) => void;
 }) {
+  const { active } = useI18n();
   const [value, setValue] = useState<[number, number]>([min, max]);
+  const step = active.currency === "IRT" ? Math.max(1000, Math.round(priceMax / 100)) : 5;
 
   useEffect(() => {
     setValue([min, max]);
@@ -466,12 +451,14 @@ function PriceRange({
         value={value}
         min={0}
         max={priceMax}
-        step={5}
+        step={step}
         onValueChange={(next) => setValue([next[0]!, next[1]!])}
         onValueCommit={(next) => onCommit(next[0]!, next[1]!)}
       />
       <div className="text-sm text-muted-foreground">
-        ${value[0]} - ${value[1]}
+        <StoreMoney amount={value[0]} currency={active.currency} locale={active.code} />
+        {" – "}
+        <StoreMoney amount={value[1]} currency={active.currency} locale={active.code} />
       </div>
     </>
   );

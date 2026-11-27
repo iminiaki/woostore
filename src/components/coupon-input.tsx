@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { X, Check, AlertCircle } from "lucide-react";
 import { announceCouponApplied } from "@/components/coupon-confetti";
 import { useCart } from "@/components/cart-store";
+import { useI18n } from "@/components/locale-provider";
 import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { playErrorSound } from "@/lib/feedback-sounds";
 
@@ -27,6 +28,15 @@ export function CouponInput({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { state, dispatch } = useCart();
+  const { t } = useI18n();
+
+  const couponError = (message?: string) => {
+    if (message === "Coupon code is required") return t("coupon.required");
+    if (message === "Cart is empty") return t("coupon.emptyCart");
+    if (message === "Invalid coupon code") return t("coupon.invalid");
+    if (message === "Failed to validate coupon") return t("coupon.failed");
+    return message || t("coupon.invalid");
+  };
 
   const validateAndApplyCoupon = async (code: string) => {
     setLoading(true);
@@ -66,7 +76,7 @@ export function CouponInput({
 
       if (!res.ok || !data.coupon) {
         playErrorSound();
-        setError(data.error || "Invalid coupon code");
+        setError(couponError(data.error));
         return;
       }
 
@@ -95,7 +105,7 @@ export function CouponInput({
       onApplied?.();
     } catch {
       playErrorSound();
-      setError("Failed to validate coupon");
+      setError(t("coupon.failed"));
     } finally {
       setLoading(false);
     }
@@ -127,11 +137,13 @@ export function CouponInput({
               <Check className="h-4 w-4 text-green-600" />
               <div>
                 <p className="text-sm font-medium text-green-800">
-                  Coupon applied: {state.appliedCoupon.coupon.code}
+                  {t("coupon.applied", { code: state.appliedCoupon.coupon.code })}
                 </p>
                 <p className="text-xs text-green-600">
                   {state.appliedCoupon.coupon.description ||
-                    (state.appliedCoupon.freeShipping ? "Free shipping" : "Discount applied")}
+                    (state.appliedCoupon.freeShipping
+                      ? t("coupon.freeShipping")
+                      : t("coupon.discountApplied"))}
                 </p>
               </div>
             </div>
@@ -140,6 +152,7 @@ export function CouponInput({
               size="sm"
               onClick={handleRemoveCoupon}
               className="h-10 p-1 text-green-600 hover:text-green-800 hover:!bg-green-100"
+              aria-label={t("coupon.remove")}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -149,7 +162,7 @@ export function CouponInput({
         <div className="space-y-2">
           <div className="flex gap-2 items-center">
             <Input
-              placeholder="Enter coupon code"
+              placeholder={t("coupon.placeholder")}
               value={couponCode}
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
               onKeyPress={handleKeyPress}
@@ -167,10 +180,10 @@ export function CouponInput({
                   size={16}
                   strokeWidth={72}
                   className="text-current"
-                  ariaLabel="Applying coupon"
+                  ariaLabel={t("coupon.applying")}
                 />
               ) : (
-                "Apply"
+                t("coupon.apply")
               )}
             </Button>
           </div>

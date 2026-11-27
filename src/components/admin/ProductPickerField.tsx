@@ -1,6 +1,6 @@
 'use client'
 
-import { FieldLabel, useConfig, useDocumentInfo, useField } from '@payloadcms/ui'
+import { FieldLabel, useConfig, useDocumentInfo, useField, useFormFields } from '@payloadcms/ui'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type Props = {
@@ -68,6 +68,7 @@ export function ProductPickerField({ field, path, readOnly }: Props) {
   const { value, setValue, showError, errorMessage } = useField<unknown>({ path })
   const { config } = useConfig()
   const { id: docId } = useDocumentInfo()
+  const language = useFormFields(([fields]) => fields.language?.value)
   const api = config.routes.api
 
   const selectedIds = useMemo(() => {
@@ -89,9 +90,12 @@ export function ProductPickerField({ field, path, readOnly }: Props) {
         const params = new URLSearchParams({
           depth: '1',
           limit: ids?.length ? String(Math.max(ids.length, 20)) : '24',
-          locale: 'en',
+          locale: 'fa',
           sort: '-updatedAt',
         })
+        if (typeof language === 'string' && language) {
+          params.set('where[language][equals]', language)
+        }
         if (ids?.length) {
           ids.forEach((id, i) => params.set(`where[id][in][${i}]`, id))
         } else if (search.trim()) {
@@ -109,7 +113,7 @@ export function ProductPickerField({ field, path, readOnly }: Props) {
         setLoading(false)
       }
     },
-    [api, docId],
+    [api, docId, language],
   )
 
   // Load selected product meta

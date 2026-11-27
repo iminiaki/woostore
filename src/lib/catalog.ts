@@ -1,3 +1,6 @@
+import { type PayloadContentLocale, type StoreCurrency } from '@/i18n/languages'
+import { translate } from '@/i18n/messages'
+import { getRequestLocale } from '@/i18n/website'
 import type { Category, FilterDefinition, FilterGroup, HeroSlide, Product } from '@/types'
 import { mapPayloadCategories, mapPayloadProduct } from '@/lib/map-product'
 import { getPayloadClient } from '@/lib/payload'
@@ -37,6 +40,18 @@ const FALLBACK_HERO_SLIDES: HeroSlide[] = [
     secondaryButton: { label: 'Browse shop', href: '/shop' },
   },
 ]
+
+async function catalogContext(options?: {
+  locale?: PayloadContentLocale
+  currency?: StoreCurrency
+}) {
+  const request = await getRequestLocale()
+  return {
+    locale: options?.locale ?? request.payloadLocale,
+    currency: options?.currency ?? request.active.currency,
+    uiLocale: request.active.code,
+  }
+}
 
 function mediaSrc(value: unknown): string | null {
   if (!value || typeof value !== 'object') return null
@@ -93,14 +108,15 @@ function mapHeroSlides(raw: unknown): HeroSlide[] {
     .filter((slide): slide is HeroSlide => Boolean(slide?.title && slide.desktopImage))
 }
 
-export async function getStoreHeroSlides(locale: 'fa' | 'en' = 'en'): Promise<HeroSlide[]> {
+export async function getStoreHeroSlides(locale?: PayloadContentLocale): Promise<HeroSlide[]> {
+  const ctx = await catalogContext({ locale })
   try {
     const payload = await getPayloadClient()
     const homepage = await payload.findGlobal({
       slug: 'homepage',
       depth: 2,
-      locale,
-      fallbackLocale: locale === 'en' ? false : 'en',
+      locale: ctx.locale,
+      fallbackLocale: ctx.locale === 'en' ? false : 'en',
     })
     const slides = mapHeroSlides((homepage as { heroSlides?: unknown }).heroSlides)
     return slides.length ? slides : FALLBACK_HERO_SLIDES
@@ -111,60 +127,71 @@ export async function getStoreHeroSlides(locale: 'fa' | 'en' = 'en'): Promise<He
 
 export async function getStoreProducts(options?: {
   limit?: number
-  locale?: 'fa' | 'en'
+  locale?: PayloadContentLocale
+  currency?: StoreCurrency
 }): Promise<Product[]> {
+  const ctx = await catalogContext(options)
   const payload = await getPayloadClient()
   const result = await payload.find({
     collection: 'products',
     depth: 3,
     limit: options?.limit ?? 100,
-    locale: options?.locale ?? 'en',
+    locale: ctx.locale,
     where: {
-      _status: {
-        equals: 'published',
-      },
+      and: [
+        { _status: { equals: 'published' } },
+        { language: { equals: ctx.locale } },
+      ],
     },
     sort: '-createdAt',
   })
 
-  return result.docs.map((doc) => mapPayloadProduct(doc as unknown as Record<string, unknown>))
+  return result.docs.map((doc) =>
+    mapPayloadProduct(doc as unknown as Record<string, unknown>, { currency: ctx.currency }),
+  )
 }
 
 export async function getStoreProductByIdOrSlug(
   idOrSlug: string,
-  locale: 'fa' | 'en' = 'en',
+  locale?: PayloadContentLocale,
 ): Promise<Product | null> {
+  const ctx = await catalogContext({ locale })
   const payload = await getPayloadClient()
 
   const byId = await payload.find({
     collection: 'products',
     depth: 3,
     limit: 1,
-    locale,
-    where: {
-      and: [
-        { _status: { equals: 'published' } },
-        {
-          or: [{ id: { equals: idOrSlug } }, { slug: { equals: idOrSlug } }],
-        },
-      ],
-    },
+    locale: ctx.locale,
+      where: {
+        and: [
+          { _status: { equals: 'published' } },
+          { language: { equals: ctx.locale } },
+          {
+            or: [{ id: { equals: idOrSlug } }, { slug: { equals: idOrSlug } }],
+          },
+        ],
+      },
   })
 
   const doc = byId.docs[0]
   if (!doc) return null
-  return mapPayloadProduct(doc as unknown as Record<string, unknown>)
+  return mapPayloadProduct(doc as unknown as Record<string, unknown>, { currency: ctx.currency })
 }
 
-export async function getStoreCategories(locale: 'fa' | 'en' = 'en'): Promise<Category[]> {
+export async function getStoreCategories(locale?: PayloadContentLocale): Promise<Category[]> {
+  const ctx = await catalogContext({ locale })
   const payload = await getPayloadClient()
   // depth 2 so category.image (media upload) is fully populated from admin
   const result = await payload.find({
     collection: 'categories',
     depth: 2,
     limit: 100,
-    locale,
+    locale: ctx.locale,
     sort: 'slug',
+    where: {
+      language: { equals: ctx.locale },
+    },
   })
   return mapPayloadCategories(result.docs as unknown as Record<string, unknown>[])
 }
@@ -175,24 +202,26 @@ export async function getStoreCategories(locale: 'fa' | 'en' = 'en'): Promise<Ca
  * - Attributes with “Use as filter” checked
  */
 export async function getFilterDefinitions(
-  locale: 'fa' | 'en' = 'en',
+  locale?: PayloadContentLocale,
 ): Promise<FilterDefinition[]> {
+  const ctx = await catalogContext({ locale })
   const payload = await getPayloadClient()
   const attrs = await payload.find({
     collection: 'attributes',
     depth: 0,
     limit: 100,
-    locale,
+    locale: ctx.locale,
     sort: 'sortOrder',
     where: {
-      filterable: {
-        equals: true,
-      },
+      and: [
+        { filterable: { equals: true } },
+        { language: { equals: ctx.locale } },
+      ],
     },
   })
 
   const defs: FilterDefinition[] = [
-    { key: 'brand', title: 'Brand', kind: 'brand' },
+    { key: 'brand', title: translate(ctx.uiLocale, 'filter.brand'), kind: 'brand' },
     ...attrs.docs.map((doc) => ({
       key: String(doc.slug),
       title: String(doc.name || doc.slug),
@@ -228,9 +257,10 @@ async function getAttributeTermsBySlug(
     limit: 100,
     locale,
     where: {
-      slug: {
-        in: attributeSlugs,
-      },
+      and: [
+        { slug: { in: attributeSlugs } },
+        { language: { equals: locale } },
+      ],
     },
   })
   const idToSlug = new Map(
@@ -375,7 +405,7 @@ export async function resolveStoreFilters(options: {
   /** Products in this archive (shop = all, category = category products, …) */
   archiveProducts: Product[]
   searchParams: Record<string, string | string[] | undefined>
-  locale?: 'fa' | 'en'
+  locale?: PayloadContentLocale
 }): Promise<{
   query: ProductQuery
   groups: FilterGroup[]
@@ -383,12 +413,12 @@ export async function resolveStoreFilters(options: {
   priceMax: number
   defs: FilterDefinition[]
 }> {
-  const locale = options.locale ?? 'en'
-  const defs = await getFilterDefinitions(locale)
+  const ctx = await catalogContext({ locale: options.locale })
+  const defs = await getFilterDefinitions(ctx.locale)
   const query = parseQuery(options.searchParams, defs)
 
   const attrKeys = defs.filter((d) => d.kind === 'attribute').map((d) => d.key)
-  const termsByAttr = await getAttributeTermsBySlug(attrKeys, locale)
+  const termsByAttr = await getAttributeTermsBySlug(attrKeys, ctx.locale)
 
   const groups = buildFacetedFilterGroups(
     options.archiveProducts,
@@ -407,7 +437,7 @@ export async function resolveStoreFilters(options: {
 /** @deprecated Use resolveStoreFilters — kept so stale HMR bundles don’t crash. */
 export async function getStoreFilterGroups(
   products: Product[],
-  locale: 'fa' | 'en' = 'en',
+  locale?: PayloadContentLocale,
 ): Promise<FilterGroup[]> {
   const { groups } = await resolveStoreFilters({
     allProducts: products,

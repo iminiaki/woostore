@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { Card, CardContent } from "@/components/ui/card";
 import type { BlogPost } from "@/types";
 

@@ -6,10 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogoTraceLoader } from "@/components/LogoTraceLoader";
+import { useI18n } from "@/components/locale-provider";
 import { toast } from "@/components/ui/use-toast";
 import { toastIcons } from "@/lib/toast-icons";
 import { cn } from "@/lib/utils";
 import { buildVariantKey } from "@/lib/stock-notify-shared";
+import type { MessageKey } from "@/i18n/messages";
+
+const NOTIFY_ERRORS: Record<string, MessageKey> = {
+  empty_phone: "notify.emptyPhone",
+  invalid_phone: "notify.badPhone",
+  not_found: "notify.notFound",
+  in_stock: "notify.inStock",
+  rate_limit: "notify.rateLimit",
+  server: "notify.error",
+};
 
 type Props = {
   productId: string;
@@ -38,6 +49,7 @@ export function StockNotifyForm({
   toastOnResult,
   onSuccess,
 }: Props) {
+  const { t } = useI18n();
   const [phone, setPhone] = useState(defaultPhone);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
@@ -55,28 +67,35 @@ export function StockNotifyForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId, variantKey, phone }),
       });
-      const json = (await res.json()) as { success?: boolean; message?: string; error?: string };
+      const json = (await res.json()) as {
+        success?: boolean;
+        already?: boolean;
+        message?: string;
+        error?: string;
+        code?: string;
+      };
       if (!res.ok || !json.success) {
-        const text = json.error || "Something went wrong. Try again.";
+        const key = json.code ? NOTIFY_ERRORS[json.code] : undefined;
+        const text = key ? t(key) : t("notify.error");
         if (toastOnResult) {
-          toast.error({ title: "Couldn’t save request", description: text, icon: toastIcons.error });
+          toast.error({ title: t("notify.errorTitle"), description: text, icon: toastIcons.error });
         } else {
           setFeedback({ ok: false, text });
         }
         return;
       }
-      const text = json.message || "Request saved. We’ll text you when it’s back.";
+      const text = json.already ? t("notify.already") : t("notify.saved");
       if (toastOnResult) {
-        toast.success({ title: "You’re on the list", description: text, icon: toastIcons.success });
+        toast.success({ title: t("notify.savedTitle"), description: text, icon: toastIcons.success });
         onSuccess?.();
       } else {
         setFeedback({ ok: true, text });
         onSuccess?.();
       }
     } catch {
-      const text = "Something went wrong. Try again.";
+      const text = t("notify.error");
       if (toastOnResult) {
-        toast.error({ title: "Couldn’t save request", description: text, icon: toastIcons.error });
+        toast.error({ title: t("notify.errorTitle"), description: text, icon: toastIcons.error });
       } else {
         setFeedback({ ok: false, text });
       }
@@ -91,27 +110,25 @@ export function StockNotifyForm({
         <div className="space-y-2">
           <h3 className="flex items-center gap-2 text-base font-semibold">
             <Bell className="h-4 w-4" />
-            Notify me when available
+            {t("notify.title")}
           </h3>
           {productName ? (
             <p className="text-sm text-muted-foreground">{productName}</p>
           ) : null}
-          <p className="text-sm text-muted-foreground">
-            We’ll text you when this item is back in stock.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("notify.body")}</p>
         </div>
       ) : null}
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
         <div className="space-y-2.5">
-          <Label htmlFor={inputId}>Phone number</Label>
+          <Label htmlFor={inputId}>{t("notify.phone")}</Label>
           <Input
             id={inputId}
             type="tel"
             inputMode="tel"
             autoComplete="tel"
             dir="ltr"
-            placeholder="+1 555 000 0000"
+            placeholder={t("notify.placeholder")}
             maxLength={20}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -138,15 +155,15 @@ export function StockNotifyForm({
                 loading
                 size={18}
                 strokeWidth={72}
-                className="mr-2 text-current"
-                ariaLabel="Saving"
+                className="me-2 text-current"
+                ariaLabel={t("notify.saving")}
               />
-              Saving…
+              {t("notify.saving")}
             </>
           ) : (
             <>
-              <Bell className="mr-2 h-4 w-4" />
-              Notify me
+              <Bell className="me-2 h-4 w-4" />
+              {t("notify.submit")}
             </>
           )}
         </Button>

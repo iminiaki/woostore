@@ -11,6 +11,7 @@ export const WalletTransactions: CollectionConfig = {
     useAsTitle: 'email',
     defaultColumns: ['createdAt', 'email', 'type', 'amount', 'balanceAfter', 'order'],
     group: t.commerce,
+    disableCopyToLocale: true,
     description: {
       en: 'Ledger for store credit. Credit adds balance, debit removes it. Checkout spends the balance on its own. Rows cannot be edited.',
       fa: 'دفتر اعتبار فروشگاه. بستانکار موجودی را زیاد می‌کند و بدهکار کم می‌کند. تسویه خودش از موجودی کم می‌کند. ردیف‌ها قابل ویرایش نیستند.',

@@ -1,24 +1,32 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
+import { LocaleLink as Link } from "@/components/locale-link"
 import { BadgeCheck, Star } from "lucide-react"
 
 import { useAuth } from "@/components/auth-context"
+import { useI18n } from "@/components/locale-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/use-toast"
+import { formatLocaleNumber } from "@/i18n/languages"
+import type { MessageKey } from "@/i18n/messages"
+import { formatDate } from "@/lib/invoice-format"
 import type { ReviewListResponse, ReviewSort, ReviewSummary, ReviewView } from "@/lib/review-types"
 import { emptySummary } from "@/lib/review-types"
 import { cn } from "@/lib/utils"
 
-const SORTS: { id: ReviewSort; label: string }[] = [
-  { id: "newest", label: "Newest" },
-  { id: "highest", label: "Highest" },
-  { id: "lowest", label: "Lowest" },
-  { id: "helpful", label: "Most helpful" },
+const SORTS: { id: ReviewSort; label: MessageKey }[] = [
+  { id: "newest", label: "review.sort.newest" },
+  { id: "highest", label: "review.sort.highest" },
+  { id: "lowest", label: "review.sort.lowest" },
+  { id: "helpful", label: "review.sort.helpful" },
 ]
+
+function reviewLang(code: string) {
+  return code.toLowerCase().startsWith("fa") ? "fa" : "en"
+}
 
 function StarRating({
   value,
@@ -29,16 +37,20 @@ function StarRating({
   size?: "sm" | "md"
   onChange?: (value: number) => void
 }) {
+  const { t, active } = useI18n()
   const icon = size === "md" ? "size-6" : "size-4"
   return (
-    <span className="inline-flex items-center" role={onChange ? "radiogroup" : undefined} aria-label="Rating">
+    <span className="inline-flex items-center" role={onChange ? "radiogroup" : undefined} aria-label={t("review.rating")}>
       {[1, 2, 3, 4, 5].map((star) => {
         const fill = Math.min(1, Math.max(0, value - (star - 1)))
         const starIcon = (
           <span className={cn("relative inline-flex", icon)}>
             <Star className={cn(icon, "text-muted-foreground/35")} strokeWidth={1.75} />
-            <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
-              <Star className={cn(icon, "fill-foreground text-foreground")} strokeWidth={1.75} />
+            <span className="absolute inset-y-0 start-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+              <Star
+                className={cn(icon, "absolute start-0 top-0 fill-foreground text-foreground")}
+                strokeWidth={1.75}
+              />
             </span>
           </span>
         )
@@ -49,7 +61,9 @@ function StarRating({
             type="button"
             role="radio"
             aria-checked={value === star}
-            aria-label={`${star} star${star === 1 ? "" : "s"}`}
+            aria-label={t(star === 1 ? "review.star" : "review.stars", {
+              n: formatLocaleNumber(star, active.code),
+            })}
             onClick={() => onChange(star)}
             className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
@@ -61,10 +75,8 @@ function StarRating({
   )
 }
 
-function formatReviewDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-  return date.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })
+function formatReviewDate(value: string, code: string) {
+  return formatDate(value, reviewLang(code))
 }
 
 function ReviewCard({
@@ -76,6 +88,8 @@ function ReviewCard({
   onHelpful?: () => void
   busy?: boolean
 }) {
+  const { t, active } = useI18n()
+  const helpful = formatLocaleNumber(review.helpfulCount, active.code)
   return (
     <article className="rounded-2xl border border-border/70 bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -85,11 +99,11 @@ function ReviewCard({
             {review.verified ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-foreground/10 px-2 py-0.5 text-[11px] font-medium text-foreground">
                 <BadgeCheck className="size-3.5" />
-                Verified purchase
+                {t("review.verified")}
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{formatReviewDate(review.createdAt)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{formatReviewDate(review.createdAt, active.code)}</p>
         </div>
         <StarRating value={review.rating} />
       </div>
@@ -105,10 +119,13 @@ function ReviewCard({
             review.helpful ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          Helpful{review.helpfulCount > 0 ? ` · ${review.helpfulCount}` : ""}
+          {t("review.helpful")}
+          {review.helpfulCount > 0 ? ` · ${helpful}` : ""}
         </button>
       ) : review.helpfulCount > 0 ? (
-        <p className="mt-4 text-xs text-muted-foreground">{review.helpfulCount} found this helpful</p>
+        <p className="mt-4 text-xs text-muted-foreground">
+          {t("review.helpfulCount", { count: helpful })}
+        </p>
       ) : null}
     </article>
   )
@@ -116,6 +133,9 @@ function ReviewCard({
 
 export function ProductReviews({ productId }: { productId: string }) {
   const { user } = useAuth()
+  const { t, active } = useI18n()
+  const n = (value: number, options?: Intl.NumberFormatOptions) =>
+    formatLocaleNumber(value, active.code, options)
   const [sort, setSort] = useState<ReviewSort>("newest")
   const [page, setPage] = useState(1)
   const [data, setData] = useState<ReviewListResponse | null>(null)
@@ -186,12 +206,12 @@ export function ProductReviews({ productId }: { productId: string }) {
       })
       const json = (await response.json()) as { error?: string }
       if (!response.ok) throw new Error(json.error || "Could not save the review")
-      toast.success({ title: data?.mine ? "Review updated" : "Review published" })
+      toast.success({ title: data?.mine ? t("review.updated") : t("review.saved") })
       await reload()
     } catch (error) {
       toast.error({
-        title: "Could not save the review",
-        description: error instanceof Error ? error.message : "Try again.",
+        title: t("review.saveFailed"),
+        description: error instanceof Error ? error.message : t("review.tryAgain"),
       })
     } finally {
       setSaving(false)
@@ -200,7 +220,7 @@ export function ProductReviews({ productId }: { productId: string }) {
 
   const markHelpful = async (review: ReviewView) => {
     if (!user?.email) {
-      toast.error({ title: "Sign in to mark a review helpful" })
+      toast.error({ title: t("review.signInHelpful") })
       return
     }
     setHelpfulId(review.id)
@@ -219,8 +239,8 @@ export function ProductReviews({ productId }: { productId: string }) {
       )
     } catch (error) {
       toast.error({
-        title: "Could not update this review",
-        description: error instanceof Error ? error.message : "Try again.",
+        title: t("review.updateFailed"),
+        description: error instanceof Error ? error.message : t("review.tryAgain"),
       })
     } finally {
       setHelpfulId(null)
@@ -231,9 +251,13 @@ export function ProductReviews({ productId }: { productId: string }) {
     <section id="reviews" className="mt-16 scroll-mt-28 border-t border-border/70 pt-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Reviews</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{t("review.title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {summary.count === 0 ? "No reviews yet." : `${summary.count} review${summary.count === 1 ? "" : "s"}`}
+            {summary.count === 0
+              ? t("review.none")
+              : t(summary.count === 1 ? "review.countOne" : "review.count", {
+                  count: n(summary.count),
+                })}
           </p>
         </div>
         {user ? (
@@ -249,27 +273,29 @@ export function ProductReviews({ productId }: { productId: string }) {
               setWriting((open) => !open)
             }}
           >
-            {data?.mine ? "Edit your review" : "Write a review"}
+            {data?.mine ? t("review.edit") : t("review.write")}
           </Button>
         ) : (
           <Button asChild variant="outline">
-            <Link href="/auth/login">Sign in to review</Link>
+            <Link href="/auth/login">{t("review.signIn")}</Link>
           </Button>
         )}
       </div>
       {data?.mine?.status === "hidden" && !writing ? (
-        <p className="mt-3 text-sm text-muted-foreground">Your review is hidden. Edit it to publish it again.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t("review.hidden")}</p>
       ) : null}
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <div className="rounded-2xl border border-border/70 bg-card p-5">
           <div className="flex items-end gap-3">
             <p className="text-6xl font-semibold tabular-nums tracking-tight">
-              {summary.count ? summary.average.toFixed(1) : "—"}
+              {summary.count
+                ? n(summary.average, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                : "—"}
             </p>
             <div className="pb-1">
               <StarRating value={summary.average} />
-              <p className="mt-1 text-xs text-muted-foreground">out of 5</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("review.outOf")}</p>
             </div>
           </div>
           <div className="mt-5 space-y-2">
@@ -278,11 +304,11 @@ export function ProductReviews({ productId }: { productId: string }) {
               const width = summary.count ? Math.round((count / summary.count) * 100) : 0
               return (
                 <div key={star} className="grid grid-cols-[1.5rem_1fr_1.5rem] items-center gap-2 text-xs">
-                  <span className="tabular-nums text-muted-foreground">{star}</span>
+                  <span className="tabular-nums text-muted-foreground">{n(star)}</span>
                   <span className="h-1.5 overflow-hidden rounded-full bg-muted">
                     <span className="block h-full rounded-full bg-foreground" style={{ width: `${width}%` }} />
                   </span>
-                  <span className="text-right tabular-nums text-muted-foreground">{count}</span>
+                  <span className="text-end tabular-nums text-muted-foreground">{n(count)}</span>
                 </div>
               )
             })}
@@ -299,34 +325,34 @@ export function ProductReviews({ productId }: { productId: string }) {
               }}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-medium">{data?.mine ? "Update your review" : "Your review"}</p>
+                <p className="text-sm font-medium">{data?.mine ? t("review.update") : t("review.yours")}</p>
                 <StarRating value={rating} size="md" onChange={setRating} />
               </div>
               {data?.verifiedPurchase ? (
-                <p className="text-xs text-muted-foreground">This review will show a verified purchase badge.</p>
+                <p className="text-xs text-muted-foreground">{t("review.verifiedNote")}</p>
               ) : null}
               {data?.mine?.status === "hidden" ? (
-                <p className="text-xs text-muted-foreground">This review is hidden. Saving it publishes it again.</p>
+                <p className="text-xs text-muted-foreground">{t("review.hiddenNote")}</p>
               ) : null}
               <Input
                 value={headline}
                 onChange={(event) => setHeadline(event.target.value)}
-                placeholder="Headline"
+                placeholder={t("review.headline")}
                 maxLength={120}
               />
               <Textarea
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
-                placeholder="What should other shoppers know?"
+                placeholder={t("review.body")}
                 rows={4}
                 maxLength={2000}
               />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={() => setWriting(false)}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button type="submit" disabled={saving || rating < 1}>
-                  {saving ? "Saving…" : data?.mine ? "Save changes" : "Publish review"}
+                  {saving ? t("common.saving") : data?.mine ? t("common.save") : t("review.publish")}
                 </Button>
               </div>
             </form>
@@ -350,7 +376,7 @@ export function ProductReviews({ productId }: { productId: string }) {
                   sort === item.id ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground",
                 )}
               >
-                {item.label}
+                {t(item.label)}
               </button>
             ))}
           </div>
@@ -359,7 +385,7 @@ export function ProductReviews({ productId }: { productId: string }) {
             <div className="h-28 animate-pulse rounded-2xl bg-muted" />
           ) : data && data.reviews.length === 0 && !data.mine ? (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              Be the first to review this product.
+              {t("review.first")}
             </div>
           ) : (
             data?.reviews.map((review) => (
@@ -375,10 +401,10 @@ export function ProductReviews({ productId }: { productId: string }) {
           {data && data.pages > 1 ? (
             <div className="flex items-center justify-between pt-2">
               <Button type="button" variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-                Previous
+                {t("common.previous")}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Page {data.page} of {data.pages}
+                {t("common.page", { page: n(data.page), pages: n(data.pages) })}
               </p>
               <Button
                 type="button"
@@ -387,7 +413,7 @@ export function ProductReviews({ productId }: { productId: string }) {
                 disabled={page >= data.pages}
                 onClick={() => setPage((current) => current + 1)}
               >
-                Next
+                {t("common.next")}
               </Button>
             </div>
           ) : null}
@@ -398,10 +424,20 @@ export function ProductReviews({ productId }: { productId: string }) {
 }
 
 export function ProductRatingLink({ rating, count }: { rating: number; count: number }) {
+  const { t, active } = useI18n()
+  const n = (value: number, options?: Intl.NumberFormatOptions) =>
+    formatLocaleNumber(value, active.code, options)
   return (
     <a href="#reviews" className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
       <StarRating value={rating} />
-      <span>{count > 0 ? `${rating.toFixed(1)} · ${count} review${count === 1 ? "" : "s"}` : "No reviews yet"}</span>
+      <span>
+        {count > 0
+          ? `${n(rating, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} · ${t(
+              count === 1 ? "review.countOne" : "review.count",
+              { count: n(count) },
+            )}`
+          : t("review.none")}
+      </span>
     </a>
   )
 }

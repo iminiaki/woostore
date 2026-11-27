@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LogoTraceLoader } from "@/components/LogoTraceLoader";
+import { useI18n } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
 
 type FilterNav = {
@@ -61,6 +62,7 @@ export function FilterNavigation({
 }
 
 export function FilterResults({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const pending = useFilterNavigation()?.pending ?? false;
 
   return (
@@ -74,8 +76,8 @@ export function FilterResults({ children }: { children: ReactNode }) {
             role="status"
             className="flex items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 text-sm text-foreground shadow-sm"
           >
-            <LogoTraceLoader loading size={16} strokeWidth={72} ariaLabel="Loading products" />
-            Loading products
+            <LogoTraceLoader loading size={16} strokeWidth={72} ariaLabel={t("filter.loading")} />
+            {t("filter.loading")}
           </div>
         </div>
       ) : null}

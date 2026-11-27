@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { scrollCarouselToIndex, useCarouselActive } from "@/hooks/use-carousel-active";
 import type { Product } from "@/types";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/locale-provider";
 
 const DESKTOP_VISIBLE = 4;
 
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export function ProductCardCarousel({ title, products, viewAllHref, className }: Props) {
+  const { t } = useI18n();
   const desktopRef = useRef<HTMLDivElement>(null);
   const mobileRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
@@ -94,7 +96,7 @@ export function ProductCardCarousel({ title, products, viewAllHref, className }:
               href={viewAllHref}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              View all
+              {t("common.viewAll")}
             </Link>
           ) : null}
           {showDesktopControls && (

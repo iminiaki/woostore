@@ -1,3 +1,4 @@
+import { pickOptionalPrice, pickPrice, type StoreCurrency } from '@/i18n/languages'
 import type { Product, ProductVariant, Category } from '@/types'
 
 type Rel<T> = T | number | string | null | undefined
@@ -37,8 +38,9 @@ function attrSlug(value: Rel<{ slug?: string }>): string | null {
 
 export function mapPayloadProduct(
   doc: Record<string, unknown>,
-  options?: { shallow?: boolean },
+  options?: { shallow?: boolean; currency?: StoreCurrency },
 ): Product {
+  const currency = options?.currency ?? 'USD'
   const category = unwrap(
     doc.category as Rel<{ id?: string | number; slug?: string; name?: string }>,
   )
@@ -120,8 +122,8 @@ export function mapPayloadProduct(
       }
       if (aSlug === 'size' && termSlug) size = termSlug
     }
-    const vPrices = (row.prices || {}) as { usd?: number }
-    const vCompare = (row.compareAtPrices || {}) as { usd?: number }
+    const vPrices = (row.prices || {}) as { usd?: number; irt?: number }
+    const vCompare = (row.compareAtPrices || {}) as { usd?: number; irt?: number }
     const image = mediaUrl(row.image as Rel<{ url?: string | null }>) || undefined
     const gallery = (Array.isArray(row.gallery) ? row.gallery : [])
       .map((img) => mediaUrl(img as Rel<{ url?: string | null }>))
@@ -132,8 +134,11 @@ export function mapPayloadProduct(
       color,
       size,
       sku: typeof row.sku === 'string' ? row.sku : undefined,
-      price: Number(vPrices.usd ?? prices.usd ?? 0),
-      originalPrice: vCompare.usd != null ? Number(vCompare.usd) : undefined,
+      price: pickPrice(
+        { usd: vPrices.usd ?? prices.usd, irt: vPrices.irt ?? prices.irt },
+        currency,
+      ),
+      originalPrice: pickOptionalPrice(vCompare, currency) ?? pickOptionalPrice(compare, currency),
       inStock: Boolean(row.inStock),
       stock: typeof row.stock === 'number' ? row.stock : undefined,
       image,
@@ -146,15 +151,17 @@ export function mapPayloadProduct(
     return raw
       .map((item) => unwrap(item as Rel<Record<string, unknown>>))
       .filter(Boolean)
-      .map((linked) => mapPayloadProduct(linked as Record<string, unknown>, { shallow: true }))
+      .map((linked) =>
+        mapPayloadProduct(linked as Record<string, unknown>, { shallow: true, currency }),
+      )
   }
 
   return {
     id: String(doc.id),
     name: String(doc.title || ''),
     description: String(doc.description || ''),
-    price: Number(prices.usd ?? 0),
-    originalPrice: compare.usd != null ? Number(compare.usd) : undefined,
+    price: pickPrice(prices, currency),
+    originalPrice: pickOptionalPrice(compare, currency),
     images: images.length ? images : ['/product images/man.jpg'],
     category: parentSlug,
     categoryName: parentName,
@@ -169,7 +176,9 @@ export function mapPayloadProduct(
     variants: variants.length ? variants : undefined,
     rating: Number(doc.rating ?? 0),
     reviews: Number(doc.reviewCount ?? 0),
-    inStock: Boolean(doc.inStock),
+    inStock: variants.length
+      ? variants.some((variant) => variant.inStock)
+      : Boolean(doc.inStock),
     featured: Boolean(doc.featured),
     newArrival: Boolean(doc.newArrival),
     clearance: Boolean(doc.clearance),

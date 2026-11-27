@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { anyone, staffOnly } from '@/access/roles'
+import { contentLanguageField, uniqueSlugPerLanguage, withLanguage } from '@/fields/language'
 import { t } from '@/i18n/admin'
 
 export const Categories: CollectionConfig = {
@@ -8,8 +9,9 @@ export const Categories: CollectionConfig = {
   labels: t.categories,
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'slug', 'parent', 'updatedAt'],
+    defaultColumns: ['name', 'language', 'slug', 'parent', 'updatedAt'],
     group: t.catalog,
+    disableCopyToLocale: true,
   },
   access: {
     create: staffOnly,
@@ -42,20 +44,20 @@ export const Categories: CollectionConfig = {
 
         return data
       },
+      uniqueSlugPerLanguage('categories'),
     ],
   },
   fields: [
+    contentLanguageField,
     {
       name: 'name',
       type: 'text',
       required: true,
-      localized: true,
     },
     {
       name: 'slug',
       type: 'text',
       required: true,
-      unique: true,
       index: true,
       admin: {
         position: 'sidebar',
@@ -65,24 +67,16 @@ export const Categories: CollectionConfig = {
       name: 'parent',
       type: 'relationship',
       relationTo: 'categories',
-      filterOptions: ({ id }) => ({
-        and: [
+      filterOptions: ({ id, data }) =>
+        withLanguage(
           {
-            parent: {
-              exists: false,
-            },
+            and: [
+              { parent: { exists: false } },
+              ...(id ? [{ id: { not_equals: id } }] : []),
+            ],
           },
-          ...(id
-            ? [
-                {
-                  id: {
-                    not_equals: id,
-                  },
-                },
-              ]
-            : []),
-        ],
-      }),
+          { data },
+        ),
       admin: {
         description: 'Set a top-level parent to create a subcategory (one level deep).',
         position: 'sidebar',
@@ -96,7 +90,6 @@ export const Categories: CollectionConfig = {
     {
       name: 'description',
       type: 'textarea',
-      localized: true,
     },
   ],
 }

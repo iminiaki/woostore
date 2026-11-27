@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useRouter } from "next/navigation";
 import { Search as SearchIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import { Input } from "@/components/ui/input";
 import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import type { Product } from "@/types";
 import { cn } from "@/lib/utils";
+import { pickPrice } from "@/i18n/languages";
+import { StoreMoney } from "@/components/store-money";
+import { useI18n } from "@/components/locale-provider";
 
 type SearchHit = Pick<Product, "id" | "name" | "brand" | "price" | "images">;
 
@@ -36,6 +39,7 @@ export function Search({ variant = "icon", className }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const { active, payloadLocale, t, localize } = useI18n();
 
   useEffect(() => {
     if (!open) return;
@@ -70,10 +74,11 @@ export function Search({ variant = "icon", className }: Props) {
         const params = new URLSearchParams({
           limit: "8",
           depth: "1",
-          locale: "en",
+          locale: payloadLocale,
           "where[and][0][_status][equals]": "published",
-          "where[and][1][or][0][title][contains]": q,
-          "where[and][1][or][1][slug][contains]": q,
+          "where[and][1][language][equals]": payloadLocale,
+          "where[and][2][or][0][title][contains]": q,
+          "where[and][2][or][1][slug][contains]": q,
         });
         const res = await fetch(`/api/products?${params}`, {
           signal: controller.signal,
@@ -83,7 +88,7 @@ export function Search({ variant = "icon", className }: Props) {
           docs?: Array<{
             id: string | number;
             title?: string;
-            prices?: { usd?: number };
+            prices?: { usd?: number; irt?: number };
             brand?: { name?: string } | number | null;
             images?: Array<{ url?: string } | number>;
           }>;
@@ -99,7 +104,7 @@ export function Search({ variant = "icon", className }: Props) {
             id: String(doc.id),
             name: doc.title || "",
             brand,
-            price: Number(doc.prices?.usd ?? 0),
+            price: pickPrice(doc.prices, active.currency),
             images: images.length ? images : ["/product images/man.jpg"],
           };
         });
@@ -117,7 +122,7 @@ export function Search({ variant = "icon", className }: Props) {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [active.currency, payloadLocale, query]);
 
   useEffect(() => {
     if (selectedIndex < 0 || !resultsRef.current) return;
@@ -128,14 +133,14 @@ export function Search({ variant = "icon", className }: Props) {
   const goToResult = (product: SearchHit) => {
     setOpen(false);
     setQuery("");
-    router.push(`/product/${product.id}`);
+    router.push(localize(`/product/${product.id}`));
   };
 
   const goToShop = () => {
     const q = query.trim();
     if (!q) return;
     setOpen(false);
-    router.push(`/shop?search=${encodeURIComponent(q)}`);
+    router.push(localize(`/shop?search=${encodeURIComponent(q)}`));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -169,13 +174,13 @@ export function Search({ variant = "icon", className }: Props) {
           goToShop();
         }}
       >
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-6 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <SearchIcon className="pointer-events-none absolute top-1/2 start-6 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Search products…"
+          placeholder={t("search.placeholder")}
           className="h-11 border-0 bg-transparent pr-10 pl-10 shadow-none focus-visible:ring-0"
           autoComplete="off"
         />
@@ -184,9 +189,9 @@ export function Search({ variant = "icon", className }: Props) {
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute top-1/2 right-4 h-8 w-8 -translate-y-1/2"
+            className="absolute top-1/2 end-4 h-8 w-8 -translate-y-1/2"
             onClick={() => setQuery("")}
-            aria-label="Clear search"
+            aria-label={t("search.clear")}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -196,22 +201,20 @@ export function Search({ variant = "icon", className }: Props) {
       <div ref={resultsRef} className="max-h-[min(60vh,28rem)] flex-1 overflow-y-auto p-2">
         {!query.trim() && (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-            Type to find pieces — or press{" "}
-            <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[10px] font-medium">↵</kbd>{" "}
-            to browse the shop.
+            {t("search.empty")}
           </p>
         )}
 
         {query.trim() && loading && (
           <div className="flex flex-col items-center justify-center gap-3 px-3 py-10">
-            <LogoTraceLoader loading size={36} strokeWidth={48} ariaLabel="Searching" />
-            <p className="text-sm text-muted-foreground">Searching…</p>
+            <LogoTraceLoader loading size={36} strokeWidth={48} ariaLabel={t("search.searching")} />
+            <p className="text-sm text-muted-foreground">{t("search.searching")}</p>
           </div>
         )}
 
         {query.trim() && !loading && results.length === 0 && (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-            No products found for &quot;{query}&quot;
+            {t("search.none", { query })}
           </p>
         )}
 
@@ -220,7 +223,7 @@ export function Search({ variant = "icon", className }: Props) {
             key={product.id}
             type="button"
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition-colors",
               index === selectedIndex ? "bg-muted" : "hover:bg-muted/70",
             )}
             onClick={() => goToResult(product)}
@@ -241,7 +244,9 @@ export function Search({ variant = "icon", className }: Props) {
                 <p className="truncate text-xs text-muted-foreground">{product.brand}</p>
               ) : null}
             </div>
-            <p className="shrink-0 text-sm font-medium">${product.price.toFixed(2)}</p>
+            <p className="shrink-0 text-sm font-medium">
+              <StoreMoney amount={product.price} currency={active.currency} locale={active.code} />
+            </p>
           </button>
         ))}
       </div>
@@ -253,7 +258,7 @@ export function Search({ variant = "icon", className }: Props) {
             onClick={goToShop}
             className="w-full rounded-lg px-3 py-2 text-center text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            View all results for &quot;{query.trim()}&quot;
+            {t("search.viewAll", { query: query.trim() })}
           </button>
         </div>
       ) : null}
@@ -289,7 +294,7 @@ export function Search({ variant = "icon", className }: Props) {
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Search products"
+          aria-label={t("search.aria")}
           className={className}
         >
           <SearchIcon className="h-5 w-5" />
@@ -300,8 +305,8 @@ export function Search({ variant = "icon", className }: Props) {
         className="top-[12%] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-lg"
       >
         <DialogHeader className="sr-only">
-          <DialogTitle>Search products</DialogTitle>
-          <DialogDescription>Find products by name or brand.</DialogDescription>
+          <DialogTitle>{t("search.title")}</DialogTitle>
+          <DialogDescription>{t("search.description")}</DialogDescription>
         </DialogHeader>
         {panel}
         <div className="flex items-center justify-between border-t px-4 py-2 text-[11px] text-muted-foreground">

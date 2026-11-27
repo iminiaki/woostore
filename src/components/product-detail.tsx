@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import type { Product } from "@/types";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ImageModal } from "@/components/image-modal";
@@ -23,6 +23,9 @@ import {
   isVariantInStock,
 } from "@/lib/variant-utils";
 import { StockNotifyForm } from "@/components/stock-notify-form";
+import { StoreMoney } from "@/components/store-money";
+import { useI18n } from "@/components/locale-provider";
+import { formatLocaleNumber } from "@/i18n/languages";
 
 const FALLBACK_COLOR_CLASS: Record<string, string> = {
   black: "bg-black border border-black",
@@ -93,6 +96,10 @@ export function ProductDetail({ product }: { product: Product }) {
   const [selectedColor, setSelectedColor] = useState(product.colors[0] || "");
   const [selectedSize, setSelectedSize] = useState(product.sizes[0] || "");
   const { dispatch: cartDispatch } = useCart();
+  const { active, t } = useI18n();
+  const money = (amount: number) => (
+    <StoreMoney amount={amount} currency={active.currency} locale={active.code} />
+  );
 
   const activeVariant = useMemo(
     () => findVariant(product, selectedColor || undefined, selectedSize || undefined),
@@ -165,7 +172,7 @@ export function ProductDetail({ product }: { product: Product }) {
       <div className="mb-6">
         <Breadcrumbs
           items={[
-            { label: "Shop", href: "/shop" },
+            { label: t("product.shop"), href: "/shop" },
             { label: product.category, href: `/category/${product.category}` },
             { label: product.name },
           ]}
@@ -210,7 +217,7 @@ export function ProductDetail({ product }: { product: Product }) {
             ) : null}
 
             <div className="flex items-center gap-2 mt-2 text-sm">
-              <span className="text-muted-foreground">Category:</span>
+              <span className="text-muted-foreground">{t("product.category")}:</span>
               <Link
                 href={`/category/${product.category}`}
                 className="text-primary hover:underline"
@@ -233,14 +240,16 @@ export function ProductDetail({ product }: { product: Product }) {
 
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-baseline gap-3">
-              <div className="text-2xl font-semibold">${displayPrice.toFixed(2)}</div>
+              <div className="text-2xl font-semibold">{money(displayPrice)}</div>
               {displayOriginalPrice != null && displayOriginalPrice > displayPrice ? (
                 <>
                   <div className="text-muted-foreground line-through">
-                    ${displayOriginalPrice.toFixed(2)}
+                    {money(displayOriginalPrice)}
                   </div>
                   {discountPercentage ? (
-                    <span className="text-xs font-medium text-red-600">-{discountPercentage}%</span>
+                    <span className="text-xs font-medium text-red-600">
+                      -{formatLocaleNumber(discountPercentage, active.code)}%
+                    </span>
                   ) : null}
                 </>
               ) : null}
@@ -250,15 +259,15 @@ export function ProductDetail({ product }: { product: Product }) {
                 inStock ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
               }`}
             >
-              {inStock ? "In Stock" : "Out of Stock"}
+              {inStock ? t("product.inStock") : t("product.outOfStock")}
             </div>
           </div>
 
           {needsColor && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium capitalize">Color: {selectedColor}</span>
-                <span className="text-sm text-muted-foreground">{product.colors.length} options</span>
+                <span className="text-sm font-medium">{t("product.color")}: {selectedColor}</span>
+                <span className="text-sm text-muted-foreground">{t("product.options", { count: product.colors.length })}</span>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {product.colors.map((color) => {
@@ -281,8 +290,8 @@ export function ProductDetail({ product }: { product: Product }) {
           {needsSize && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Size: {selectedSize}</span>
-                <span className="text-sm text-muted-foreground">{product.sizes.length} options</span>
+                <span className="text-sm font-medium">{t("product.size")}: {selectedSize}</span>
+                <span className="text-sm text-muted-foreground">{t("product.options", { count: product.sizes.length })}</span>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {product.sizes.map((size) => {
@@ -311,7 +320,7 @@ export function ProductDetail({ product }: { product: Product }) {
 
           {inStock ? (
             <Button onClick={handleAddToCart} disabled={!canAddToCart} className="w-full" size="lg">
-              Add to Cart
+              {t("product.addToCart")}
             </Button>
           ) : (
             <StockNotifyForm
@@ -324,7 +333,7 @@ export function ProductDetail({ product }: { product: Product }) {
           )}
 
           <div>
-            <h2 className="text-lg font-medium">Description</h2>
+            <h2 className="text-lg font-medium">{t("product.description")}</h2>
             <p className="text-muted-foreground">{product.description}</p>
           </div>
         </div>
@@ -341,11 +350,11 @@ export function ProductDetail({ product }: { product: Product }) {
       />
 
       <ProductCardCarousel
-        title="Related products"
+        title={t("product.related")}
         products={product.relatedProducts || []}
       />
       <ProductCardCarousel
-        title="Often bought with"
+        title={t("product.boughtWith")}
         products={product.crossSells || []}
       />
     </PageShell>

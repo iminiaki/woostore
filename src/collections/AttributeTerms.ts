@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { anyone, staffOnly } from '@/access/roles'
+import { contentLanguageField, withLanguage } from '@/fields/language'
 import { t } from '@/i18n/admin'
 
 /**
@@ -12,8 +13,9 @@ export const AttributeTerms: CollectionConfig = {
   labels: t.attributeTerms,
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'attribute', 'slug', 'hex'],
+    defaultColumns: ['name', 'language', 'attribute', 'slug', 'hex'],
     group: t.catalog,
+    disableCopyToLocale: true,
     description: {
       en: 'Values belonging to a global attribute.',
       fa: 'مقادیر متعلق به یک ویژگی سراسری.',
@@ -26,12 +28,14 @@ export const AttributeTerms: CollectionConfig = {
     update: staffOnly,
   },
   fields: [
+    contentLanguageField,
     {
       name: 'attribute',
       type: 'relationship',
       relationTo: 'attributes',
       required: true,
       index: true,
+      filterOptions: ({ data }) => withLanguage(null, { data }),
       admin: {
         position: 'sidebar',
       },
@@ -40,7 +44,6 @@ export const AttributeTerms: CollectionConfig = {
       name: 'name',
       type: 'text',
       required: true,
-      localized: true,
       admin: {
         components: {
           Cell: '@/components/admin/AttributeTermNameCell#AttributeTermNameCell',

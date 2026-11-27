@@ -1,6 +1,10 @@
 "use client"
 
 import { useMemo } from "react"
+
+import { useI18n } from "@/components/locale-provider"
+import { formatLocaleNumber } from "@/i18n/languages"
+import type { MessageKey } from "@/i18n/messages"
 import {
   Ban,
   CheckCircle2,
@@ -27,14 +31,40 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 import {
-  DOCUMENT_KIND_LABEL,
-  DOCUMENT_STATUS_LABEL,
-  ORDER_STATUS_LABEL,
-  paymentLabel,
   type CustomerOrder,
+  type CustomerOrderDocument,
   type CustomerOrderStatus,
   type CustomerOrderStatusEvent,
 } from "@/lib/customer-order"
+
+type Copy = (key: MessageKey, vars?: Record<string, string | number>) => string
+
+function invoiceLang(code: string) {
+  return code.toLowerCase().startsWith("fa") ? "fa" : "en"
+}
+
+function statusLabel(t: Copy, status: CustomerOrderStatus) {
+  return t(`status.${status}` as MessageKey)
+}
+
+function docKind(t: Copy, kind: CustomerOrderDocument["kind"]) {
+  return t(kind === "invoice" ? "doc.invoice" : "doc.proforma")
+}
+
+function docStatus(t: Copy, status: CustomerOrderDocument["status"]) {
+  if (status === "void") return t("doc.void")
+  if (status === "superseded") return t("doc.superseded")
+  return t("doc.issued")
+}
+
+function payMethod(t: Copy, value?: string | null) {
+  if (!value) return t("pay.none")
+  if (value === "cod") return t("pay.cod")
+  if (value === "card") return t("pay.card")
+  if (value === "wallet") return t("pay.wallet")
+  if (value === "wallet+cod") return t("pay.both")
+  return value
+}
 import { formatDate } from "@/lib/invoice-format"
 import { cn } from "@/lib/utils"
 
@@ -74,108 +104,73 @@ function hasReached(history: CustomerOrderStatusEvent[], status: CustomerOrderSt
   return history.some((event) => event.status === status)
 }
 
-function runningTitle(status: CustomerOrderStatus) {
-  switch (status) {
-    case "pending":
-      return "Awaiting payment"
-    case "processing":
-      return "Processing order"
-    case "on-hold":
-      return "Order on hold"
-    case "completed":
-      return "Completing order"
-    case "cancelled":
-      return "Cancelling order"
-    case "failed":
-      return "Order failing"
-    case "refunded":
-      return "Refunding order"
-    default:
-      return ORDER_STATUS_LABEL[status]
-  }
+function runningTitle(status: CustomerOrderStatus, t: Copy) {
+  const key = `trace.run.${status}` as MessageKey
+  return t(key)
 }
 
-function doneTitle(status: CustomerOrderStatus) {
-  switch (status) {
-    case "pending":
-      return "Payment confirmed"
-    case "processing":
-      return "Order processed"
-    case "on-hold":
-      return "Hold cleared"
-    case "completed":
-      return "Order completed"
-    case "cancelled":
-      return "Order cancelled"
-    case "failed":
-      return "Order failed"
-    case "refunded":
-      return "Order refunded"
-    default:
-      return ORDER_STATUS_LABEL[status]
-  }
+function doneTitle(status: CustomerOrderStatus, t: Copy) {
+  return t(`trace.done.${status}` as MessageKey)
 }
 
-function pendingTitle(status: CustomerOrderStatus) {
-  switch (status) {
-    case "pending":
-      return "Confirm payment"
-    case "processing":
-      return "Process order"
-    case "completed":
-      return "Complete order"
-    default:
-      return ORDER_STATUS_LABEL[status]
+function pendingTitle(status: CustomerOrderStatus, t: Copy) {
+  if (status === "pending" || status === "processing" || status === "completed") {
+    return t(`trace.next.${status}` as MessageKey)
   }
+  return statusLabel(t, status)
 }
 
 function detailFor(
   status: CustomerOrderStatus,
   order: CustomerOrder,
   phase: "done" | "running" | "pending",
+  t: Copy,
 ) {
   if (status === "pending") {
-    if (phase === "done") return `Paid by ${paymentLabel(order.paymentMethod)}.`
-    if (phase === "running") return "We are waiting for payment before preparing the order."
-    return "Payment confirmation is next."
+    if (phase === "done") return t("trace.pay.done", { method: payMethod(t, order.paymentMethod) })
+    if (phase === "running") return t("trace.pay.run")
+    return t("trace.pay.next")
   }
   if (status === "processing") {
-    if (phase === "done") return "Items were prepared for fulfillment."
-    if (phase === "running") return "The store is preparing and packing your items."
-    return "Fulfillment starts after payment is confirmed."
+    if (phase === "done") return t("trace.pack.done")
+    if (phase === "running") return t("trace.pack.run")
+    return t("trace.pack.next")
   }
   if (status === "on-hold") {
-    return phase === "running"
-      ? "This order is paused. We will continue once the hold is cleared."
-      : "This order was briefly on hold."
+    return phase === "running" ? t("trace.hold.run") : t("trace.hold.done")
   }
   if (status === "completed") {
-    return phase === "done" ? "This order is complete." : "Shown when the order is marked completed."
+    return phase === "done" ? t("trace.complete.done") : t("trace.complete.next")
   }
-  if (status === "cancelled") return "This order was cancelled and will not be fulfilled."
-  if (status === "failed") return "Checkout or payment did not complete for this order."
-  if (status === "refunded") return "Payment for this order was refunded."
-  return ORDER_STATUS_LABEL[status]
+  if (status === "cancelled") return t("trace.cancelled")
+  if (status === "failed") return t("trace.failed")
+  if (status === "refunded") return t("trace.refunded")
+  return statusLabel(t, status)
 }
 
 /** Build progress from live statusHistory + current status + documents. */
-export function buildOrderSteps(order: CustomerOrder): ProcessStep[] {
+export function buildOrderSteps(order: CustomerOrder, t: Copy, localeCode: string): ProcessStep[] {
+  const lang = invoiceLang(localeCode)
   const history = order.statusHistory?.length
     ? order.statusHistory
-    : [{ status: order.status, at: order.createdAt, note: "Order placed" }]
+    : [{ status: order.status, at: order.createdAt, note: t("trace.placed") }]
 
   const current = order.status
-  const placedAt = formatDate(order.createdAt, "en")
+  const placedAt = formatDate(order.createdAt, lang)
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0)
 
   const steps: ProcessStep[] = [
     {
       id: "placed",
-      title: "Order placed",
+      title: t("trace.placed"),
       description: placedAt,
       icon: ClipboardList,
-      detail: `Order ${order.orderNumber} was received with ${order.items.length} item${
-        order.items.length === 1 ? "" : "s"
-      }.`,
+      detail: t("trace.placedDetail", {
+        number: order.orderNumber,
+        count: t(itemCount === 1 ? "orders.item" : "orders.items", {
+          count: formatLocaleNumber(itemCount, localeCode),
+        }),
+      }),
     },
   ]
 
@@ -185,31 +180,31 @@ export function buildOrderSteps(order: CustomerOrder): ProcessStep[] {
       const at = lastEventAt(history, "processing") || order.createdAt
       steps.push({
         id: "processing",
-        title: doneTitle("processing"),
-        description: formatDate(at, "en"),
+        title: doneTitle("processing", t),
+        description: formatDate(at, lang),
         icon: Truck,
-        detail: detailFor("processing", order, "done"),
+        detail: detailFor("processing", order, "done", t),
       })
     }
     if (hasReached(history, "completed") && current === "refunded") {
       const at = lastEventAt(history, "completed") || order.updatedAt || order.createdAt
       steps.push({
         id: "completed",
-        title: doneTitle("completed"),
-        description: formatDate(at, "en"),
+        title: doneTitle("completed", t),
+        description: formatDate(at, lang),
         icon: PackageCheck,
-        detail: detailFor("completed", order, "done"),
+        detail: detailFor("completed", order, "done", t),
       })
     }
 
     const terminalAt = lastEventAt(history, current) || order.updatedAt || order.createdAt
     steps.push({
       id: current,
-      title: doneTitle(current),
-      description: formatDate(terminalAt, "en"),
+      title: doneTitle(current, t),
+      description: formatDate(terminalAt, lang),
       status: "error",
       icon: STATUS_ICON[current],
-      detail: detailFor(current, order, "done"),
+      detail: detailFor(current, order, "done", t),
       defaultOpen: true,
     })
   } else {
@@ -238,10 +233,10 @@ export function buildOrderSteps(order: CustomerOrder): ProcessStep[] {
       if (stage === "pending" && skippedPending) {
         steps.push({
           id: "payment",
-          title: doneTitle("pending"),
-          description: formatDate(order.createdAt, "en"),
+          title: doneTitle("pending", t),
+          description: formatDate(order.createdAt, lang),
           icon: CreditCard,
-          detail: detailFor("pending", order, "done"),
+          detail: detailFor("pending", order, "done", t),
         })
         continue
       }
@@ -273,14 +268,14 @@ export function buildOrderSteps(order: CustomerOrder): ProcessStep[] {
         id: stage,
         title:
           phase === "running"
-            ? runningTitle(stage)
+            ? runningTitle(stage, t)
             : phase === "done"
-              ? doneTitle(stage)
-              : pendingTitle(stage),
-        description: at && phase !== "pending" ? formatDate(at, "en") : undefined,
+              ? doneTitle(stage, t)
+              : pendingTitle(stage, t),
+        description: at && phase !== "pending" ? formatDate(at, lang) : undefined,
         status: phase === "running" ? "running" : phase === "pending" ? "pending" : undefined,
         icon: phase === "done" && stage === "completed" ? PackageCheck : STATUS_ICON[stage],
-        detail: detailFor(stage, order, phase),
+        detail: detailFor(stage, order, phase, t),
         defaultOpen: phase === "running" || (stage === "completed" && phase === "done"),
       })
     }
@@ -292,15 +287,15 @@ export function buildOrderSteps(order: CustomerOrder): ProcessStep[] {
       id: "documents",
       title:
         docs.length === 1
-          ? `Issued ${DOCUMENT_KIND_LABEL[docs[0]!.kind].toLowerCase()}`
-          : `Issued ${docs.length} documents`,
+          ? t("trace.issuedOne", { name: docKind(t, docs[0]!.kind) })
+          : t("trace.issuedMany", { count: formatLocaleNumber(docs.length, localeCode) }),
       icon: FileText,
       description: docs.map((doc) => doc.number).join(" · "),
       detail: docs
         .map(
           (doc) =>
-            `${DOCUMENT_KIND_LABEL[doc.kind]} ${doc.number} — ${DOCUMENT_STATUS_LABEL[doc.status]}${
-              doc.issuedAt ? ` · ${formatDate(doc.issuedAt, "en")}` : ""
+            `${docKind(t, doc.kind)} ${doc.number} — ${docStatus(t, doc.status)}${
+              doc.issuedAt ? ` · ${formatDate(doc.issuedAt, lang)}` : ""
             }`,
         )
         .join("\n"),
@@ -357,14 +352,15 @@ export function OrderProcessTrace({
   className?: string
   showTitle?: boolean
 }) {
-  const steps = useMemo(() => buildOrderSteps(order), [order])
+  const { t, active } = useI18n()
+  const steps = useMemo(() => buildOrderSteps(order, t, active.code), [order, t, active.code])
 
   return (
     <div className={cn(showTitle ? "space-y-4" : undefined, className)}>
       {showTitle ? (
-        <h2 className="text-base font-semibold tracking-tight">Order progress</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t("trace.progress")}</h2>
       ) : null}
-      <Trace aria-label="Order progress">
+      <Trace aria-label={t("trace.progress")}>
         {steps.map((step) => (
           <StepRow key={`${step.id}-${step.title}-${step.description || ""}`} step={step} />
         ))}

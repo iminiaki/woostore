@@ -6,6 +6,7 @@ import { ProductPickerField as ProductPickerField_6d4edd5fb1e6b65f0bcad4fc560461
 import { GenerateCouponCodesField as GenerateCouponCodesField_769fa77cc426dc9b65f83510cf274fcd } from '@/components/admin/GenerateCouponCodesField'
 import { OrderInvoicesField as OrderInvoicesField_ec06b750af596b067424cec5d09f173f } from '@/components/admin/OrderInvoicesField'
 import { InvoicePrintLink as InvoicePrintLink_a9fdd206eb229f37b1b4fa0f67048075 } from '@/components/admin/InvoicePrintLink'
+import { WebsiteLanguagesField as WebsiteLanguagesField_73a2ae049b0255d5e54ae35c988c3909 } from '@/components/admin/WebsiteLanguagesField'
 import { ReportsNavLink as ReportsNavLink_db1cbc45c59b0b2e6c3ac27bf4990712 } from '@/components/admin/ReportsNavLink'
 import { SyncLocaleLanguageProvider as SyncLocaleLanguageProvider_b3763e3ab1316dfe168b209bab04f144 } from '@/components/admin/SyncLocaleLanguageProvider'
 import { ReportsPage as ReportsPage_ac9b767d9583b717a34c7594b3ff556b } from '@/components/admin/ReportsPage'
@@ -21,6 +22,7 @@ export const importMap = {
   "@/components/admin/GenerateCouponCodesField#GenerateCouponCodesField": GenerateCouponCodesField_769fa77cc426dc9b65f83510cf274fcd,
   "@/components/admin/OrderInvoicesField#OrderInvoicesField": OrderInvoicesField_ec06b750af596b067424cec5d09f173f,
   "@/components/admin/InvoicePrintLink#InvoicePrintLink": InvoicePrintLink_a9fdd206eb229f37b1b4fa0f67048075,
+  "@/components/admin/WebsiteLanguagesField#WebsiteLanguagesField": WebsiteLanguagesField_73a2ae049b0255d5e54ae35c988c3909,
   "@/components/admin/ReportsNavLink#ReportsNavLink": ReportsNavLink_db1cbc45c59b0b2e6c3ac27bf4990712,
   "@/components/admin/SyncLocaleLanguageProvider#SyncLocaleLanguageProvider": SyncLocaleLanguageProvider_b3763e3ab1316dfe168b209bab04f144,
   "@/components/admin/ReportsPage#ReportsPage": ReportsPage_ac9b767d9583b717a34c7594b3ff556b,

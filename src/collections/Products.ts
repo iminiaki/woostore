@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 
 import { anyone, staffOnly } from '@/access/roles'
 import { currencyPricesField, optionalCurrencyPricesField } from '@/fields/prices'
+import { contentLanguageField, uniqueSlugPerLanguage, withLanguage } from '@/fields/language'
 import { t } from '@/i18n/admin'
 import { findRestockedVariantKeys, notifyPendingStockAlerts } from '@/lib/stock-notify'
 
@@ -10,8 +11,9 @@ export const Products: CollectionConfig = {
   labels: t.products,
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['mainImage', 'title', 'sku', 'productType', 'updatedAt'],
+    defaultColumns: ['mainImage', 'title', 'language', 'sku', 'productType', 'updatedAt'],
     group: t.catalog,
+    disableCopyToLocale: true,
   },
   versions: {
     drafts: {
@@ -71,6 +73,7 @@ export const Products: CollectionConfig = {
 
         return data
       },
+      uniqueSlugPerLanguage('products'),
     ],
     beforeChange: [
       ({ data }) => {
@@ -129,17 +132,16 @@ export const Products: CollectionConfig = {
     ],
   },
   fields: [
+    contentLanguageField,
     {
       name: 'title',
       type: 'text',
       required: true,
-      localized: true,
     },
     {
       name: 'slug',
       type: 'text',
       required: true,
-      unique: true,
       index: true,
       admin: {
         position: 'sidebar',
@@ -162,7 +164,6 @@ export const Products: CollectionConfig = {
     {
       name: 'description',
       type: 'textarea',
-      localized: true,
     },
     {
       name: 'mainImage',
@@ -204,11 +205,8 @@ export const Products: CollectionConfig = {
           relationTo: 'categories',
           required: true,
           label: { en: 'Category', fa: 'دسته‌بندی' },
-          filterOptions: () => ({
-            parent: {
-              exists: false,
-            },
-          }),
+          filterOptions: ({ data }) =>
+            withLanguage({ parent: { exists: false } }, { data }),
           admin: {
             description: {
               en: 'Top-level category only (e.g. Men, Women).',
@@ -221,20 +219,10 @@ export const Products: CollectionConfig = {
           type: 'relationship',
           relationTo: 'categories',
           label: { en: 'Subcategory', fa: 'زیر‌دسته' },
-          filterOptions: ({ siblingData }) => {
+          filterOptions: ({ data, siblingData }) => {
             const parent = (siblingData as { category?: string | number | null })?.category
-            if (!parent) {
-              return {
-                parent: {
-                  exists: true,
-                },
-              }
-            }
-            return {
-              parent: {
-                equals: parent,
-              },
-            }
+            if (!parent) return withLanguage({ parent: { exists: true } }, { data })
+            return withLanguage({ parent: { equals: parent } }, { data })
           },
           admin: {
             description: {
@@ -249,6 +237,7 @@ export const Products: CollectionConfig = {
       name: 'brand',
       type: 'relationship',
       relationTo: 'brands',
+      filterOptions: ({ data }) => withLanguage(null, { data }),
     },
     {
       name: 'sku',
@@ -282,6 +271,7 @@ export const Products: CollectionConfig = {
           type: 'relationship',
           relationTo: 'attributes',
           required: true,
+          filterOptions: ({ data }) => withLanguage(null, { data }),
         },
         {
           name: 'terms',
@@ -342,7 +332,6 @@ export const Products: CollectionConfig = {
           name: 'name',
           type: 'text',
           required: true,
-          localized: true,
           admin: {
             description: 'Attribute key, e.g. Composition / Care',
           },
@@ -410,6 +399,7 @@ export const Products: CollectionConfig = {
               type: 'relationship',
               relationTo: 'attributes',
               required: true,
+              filterOptions: ({ data }) => withLanguage(null, { data }),
             },
             {
               name: 'term',

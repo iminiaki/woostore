@@ -19,6 +19,7 @@ export const Reviews: CollectionConfig = {
     useAsTitle: "authorName",
     defaultColumns: ["authorName", "product", "rating", "status", "verified", "createdAt"],
     group: t.commerce,
+    disableCopyToLocale: true,
     description: {
       en: "Customer reviews. Published reviews update the product rating.",
       fa: "نظر مشتریان. نظرهای منتشرشده امتیاز محصول را به‌روز می‌کنند.",

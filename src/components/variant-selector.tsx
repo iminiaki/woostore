@@ -15,6 +15,9 @@ import {
   isVariantInStock,
 } from "@/lib/variant-utils";
 import { StockNotifyForm } from "@/components/stock-notify-form";
+import { useI18n } from "@/components/locale-provider";
+import { StoreMoney } from "@/components/store-money";
+import { formatLocaleNumber } from "@/i18n/languages";
 
 interface VariantSelectorProps {
   product: Product;
@@ -39,6 +42,7 @@ const FALLBACK_COLOR_CLASS: Record<string, string> = {
 };
 
 export function VariantSelector({ product, isOpen, onClose, onAddToCart }: VariantSelectorProps) {
+  const { t, active } = useI18n();
   const needsColor = product.colors.length > 0;
   const needsSize = product.sizes.length > 0;
   const [selectedColor, setSelectedColor] = useState(product.colors[0] || "");
@@ -85,8 +89,8 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Select Options</DialogTitle>
+        <DialogHeader className="pe-8 text-start sm:text-start">
+          <DialogTitle>{t("product.selectOptions")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -96,12 +100,16 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
             </div>
             <div className="flex-1">
               <h3 className="font-medium">{product.name}</h3>
-              <p className="text-sm text-muted-foreground capitalize">{product.category}</p>
+              <p className="text-sm text-muted-foreground">
+                {product.categoryName || product.category}
+              </p>
               <div className="flex items-center gap-2 mt-1">
-                <p className="font-medium">${price.toFixed(2)}</p>
+                <p className="font-medium">
+                  <StoreMoney amount={price} currency={active.currency} locale={active.code} />
+                </p>
                 {originalPrice != null && originalPrice > price ? (
                   <p className="text-sm text-muted-foreground line-through">
-                    ${originalPrice.toFixed(2)}
+                    <StoreMoney amount={originalPrice} currency={active.currency} locale={active.code} />
                   </p>
                 ) : null}
               </div>
@@ -111,8 +119,12 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
           {needsColor && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium capitalize">Color: {selectedColor}</span>
-                <span className="text-sm text-muted-foreground">{product.colors.length} options</span>
+                <span className="text-sm font-medium">
+                  {t("product.color")}: {selectedColor}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {t("product.options", { count: formatLocaleNumber(product.colors.length, active.code) })}
+                </span>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {product.colors.map((color) => {
@@ -144,8 +156,12 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
           {needsSize && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Size: {selectedSize}</span>
-                <span className="text-sm text-muted-foreground">{product.sizes.length} options</span>
+                <span className="text-sm font-medium">
+                  {t("product.size")}: {selectedSize}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {t("product.options", { count: formatLocaleNumber(product.sizes.length, active.code) })}
+                </span>
               </div>
               <div className="flex gap-2 flex-wrap">
                 {product.sizes.map((size) => {
@@ -176,7 +192,7 @@ export function VariantSelector({ product, isOpen, onClose, onAddToCart }: Varia
 
           {inStock ? (
             <Button onClick={handleAddToCart} disabled={!canAddToCart} className="w-full">
-              Add to Cart
+              {t("product.addToCart")}
             </Button>
           ) : (
             <StockNotifyForm

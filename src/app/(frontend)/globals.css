@@ -127,6 +127,9 @@
     min-height: 100dvh;
     min-height: -webkit-fill-available;
   }
+  html[dir="rtl"] body {
+    font-family: var(--font-vazir), ui-sans-serif, system-ui, sans-serif;
+  }
   /* Tailwind v4 preflight no longer sets pointer on buttons; restore for links & controls */
   a[href],
   button:not(:disabled),

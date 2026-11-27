@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ interface BreadcrumbsProps {
 
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   return (
-    <nav className={cn("flex items-center space-x-1 text-sm text-muted-foreground", className)}>
+    <nav className={cn("flex items-center gap-1 text-sm text-muted-foreground", className)}>
       <Link 
         href="/" 
         className="flex items-center hover:text-foreground transition-colors"
@@ -25,8 +25,8 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
       </Link>
       
       {items.map((item, index) => (
-        <div key={index} className="flex items-center space-x-1">
-          <ChevronRight className="h-4 w-4" />
+        <div key={index} className="flex items-center gap-1">
+          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
           {item.href ? (
             <Link 
               href={item.href}

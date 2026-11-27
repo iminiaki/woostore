@@ -11,6 +11,7 @@ export const Wallets: CollectionConfig = {
     useAsTitle: 'email',
     defaultColumns: ['email', 'balance', 'currency', 'updatedAt'],
     group: t.commerce,
+    disableCopyToLocale: true,
     description: {
       en: 'Customer store credit. Add or remove balance from Wallet transactions — this amount cannot be edited directly.',
       fa: 'اعتبار مشتری. موجودی را از تراکنش‌های کیف پول تغییر دهید — این مبلغ مستقیم قابل ویرایش نیست.',

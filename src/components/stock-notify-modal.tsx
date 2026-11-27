@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { StockNotifyForm } from "@/components/stock-notify-form";
+import { useI18n } from "@/components/locale-provider";
 
 type Props = {
   open: boolean;
@@ -29,6 +30,7 @@ export function StockNotifyModal({
   color,
   size,
 }: Props) {
+  const { t } = useI18n();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -38,12 +40,12 @@ export function StockNotifyModal({
           "bg-gradient-to-b from-muted/50 via-background/75 to-background/85"
         }
       >
-        <DialogHeader className="gap-3 pr-8 text-left">
+        <DialogHeader className="gap-3 pe-8 text-start">
           <div className="flex items-center gap-2.5">
             <Bell className="h-4 w-4 shrink-0 text-foreground" aria-hidden />
-            <DialogTitle className="text-lg leading-none">Notify me when available</DialogTitle>
+            <DialogTitle className="text-lg leading-none">{t("notify.title")}</DialogTitle>
           </div>
-          <DialogDescription>We’ll text you when it’s back in stock.</DialogDescription>
+          <DialogDescription>{t("notify.short")}</DialogDescription>
         </DialogHeader>
 
         <p className="truncate text-sm font-medium text-foreground">{productName}</p>

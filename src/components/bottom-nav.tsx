@@ -1,25 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Home, Search, User, ShoppingBag } from "lucide-react";
+import { LocaleLink as Link } from "@/components/locale-link";
 import { useStandalone } from "@/hooks/use-standalone";
+import { useI18n } from "@/components/locale-provider";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/search", label: "Search", icon: Search },
-  { href: "/shop", label: "Shop", icon: ShoppingBag },
-  { href: "/profile", label: "Profile", icon: User },
-];
 
 /** Outer radius − padding = inner radius (concentric corners). */
 const DECK_RADIUS = "1.75rem";
 const DECK_PAD = "0.375rem";
 
 export function BottomNav() {
-  const pathname = usePathname();
   const standalone = useStandalone();
+  const { t, path } = useI18n();
+  const navItems = [
+    { href: "/", label: t("nav.home"), icon: Home },
+    { href: "/search", label: t("nav.search"), icon: Search },
+    { href: "/shop", label: t("nav.shop"), icon: ShoppingBag },
+    { href: "/profile", label: t("nav.profile"), icon: User },
+  ];
 
   return (
     <div
@@ -41,8 +40,8 @@ export function BottomNav() {
           const Icon = item.icon;
           const isActive =
             item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              ? path === "/"
+              : path === item.href || path.startsWith(`${item.href}/`);
 
           return (
             <Link

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { LocaleLink as Link } from "@/components/locale-link";
 import Image from "next/image";
 import {
   createContext,
@@ -11,7 +11,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { usePathname } from "next/navigation";
 import { ShoppingBag, User2 } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { useCart } from "./cart-store";
@@ -20,14 +19,10 @@ import { useStandalone } from "@/hooks/use-standalone";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search } from "./search";
+import { LanguageSwitcher } from "./language-switcher";
+import { useI18n } from "@/components/locale-provider";
+import { formatLocaleNumber } from "@/i18n/languages";
 import { cn } from "@/lib/utils";
-
-const nav = [
-  { href: "/shop", label: "Shop" },
-  // { href: "/blog", label: "Blog" }, // temporarily hidden
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
 
 const HeaderHeroModeContext = createContext<{
   enabled: boolean;
@@ -53,9 +48,14 @@ export function useHeroHeader() {
 }
 
 export function SiteHeader() {
-  const pathname = usePathname();
+  const { t, path, active } = useI18n();
+  const nav = [
+    { href: "/shop", label: t("nav.shop") },
+    { href: "/about", label: t("nav.about") },
+    { href: "/contact", label: t("nav.contact") },
+  ];
   const { enabled: heroMode } = useContext(HeaderHeroModeContext);
-  const isOverlayPage = pathname === "/" || heroMode;
+  const isOverlayPage = path === "/" || heroMode;
   const [scrolled, setScrolled] = useState(false);
   const { totalQuantity } = useCart();
   const { isAuthenticated } = useAuth();
@@ -146,23 +146,24 @@ export function SiteHeader() {
               <Search />
               <Link
                 href={isAuthenticated ? "/profile" : "/auth/login"}
-                aria-label="Profile"
+                aria-label={t("nav.profile")}
                 className="hidden md:block"
               >
                 <Button variant="ghost" size="icon">
                   <User2 className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/cart" className="relative" aria-label="Cart">
+              <Link href="/cart" className="relative" aria-label={t("nav.cart")}>
                 <Button variant="ghost" size="icon">
                   <ShoppingBag className="h-5 w-5" />
                 </Button>
                 {totalQuantity > 0 && (
-                  <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
-                    {totalQuantity}
+                  <Badge className="absolute -end-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1 text-[10px]">
+                    {formatLocaleNumber(totalQuantity, active.code)}
                   </Badge>
                 )}
               </Link>
+              <LanguageSwitcher />
               <div className="hidden sm:block">
                 <ThemeToggle />
               </div>

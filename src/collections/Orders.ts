@@ -81,6 +81,7 @@ export const Orders: CollectionConfig = {
     useAsTitle: 'orderNumber',
     defaultColumns: ['orderNumber', 'status', 'email', 'total', 'createdAt'],
     group: t.commerce,
+    disableCopyToLocale: true,
     // Orders are created by storefront checkout, not manually in admin
     disableCreate: true,
   },

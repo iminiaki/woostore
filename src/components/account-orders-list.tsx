@@ -5,18 +5,33 @@ import { useRouter } from "next/navigation"
 import { ArrowUpRight, FileText, Package, RotateCcw } from "lucide-react"
 
 import { useAuth } from "@/components/auth-context"
+import { useI18n } from "@/components/locale-provider"
 import { useCart } from "@/components/cart-store"
 import { LogoTraceLoader } from "@/components/LogoTraceLoader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { formatLocaleNumber } from "@/i18n/languages"
+import type { MessageKey } from "@/i18n/messages"
 import {
-  DOCUMENT_KIND_LABEL,
-  ORDER_STATUS_LABEL,
   lineToCartProduct,
   type CustomerOrder,
+  type CustomerOrderDocument,
+  type CustomerOrderStatus,
 } from "@/lib/customer-order"
 import { formatDate, formatMoney } from "@/lib/invoice-format"
+
+function invoiceLang(code: string) {
+  return code.toLowerCase().startsWith("fa") ? "fa" : "en"
+}
+
+function statusKey(status: CustomerOrderStatus): MessageKey {
+  return `status.${status}` as MessageKey
+}
+
+function docKey(kind: CustomerOrderDocument["kind"]): MessageKey {
+  return kind === "invoice" ? "doc.invoice" : "doc.proforma"
+}
 
 function statusVariant(status: CustomerOrder["status"]) {
   if (status === "completed") return "default" as const
@@ -26,6 +41,12 @@ function statusVariant(status: CustomerOrder["status"]) {
 
 export function AccountOrdersList() {
   const router = useRouter()
+  const { localize, t, active } = useI18n()
+  const lang = invoiceLang(active.code)
+  const countLabel = (count: number) =>
+    t(count === 1 ? "orders.item" : "orders.items", {
+      count: formatLocaleNumber(count, active.code),
+    })
   const { user } = useAuth()
   const { dispatch } = useCart()
   const [orders, setOrders] = useState<CustomerOrder[] | null>(null)
@@ -39,19 +60,19 @@ export function AccountOrdersList() {
     fetch(`/api/store/account/orders?email=${encodeURIComponent(user.email)}`)
       .then(async (response) => {
         const data = await response.json()
-        if (!response.ok) throw new Error(data.error || "Could not load orders")
+        if (!response.ok) throw new Error("load")
         return data.orders as CustomerOrder[]
       })
       .then((next) => {
         if (!cancelled) setOrders(next)
       })
       .catch((err: Error) => {
-        if (!cancelled) setError(err.message)
+        if (!cancelled) setError(t("orders.loadFailed"))
       })
     return () => {
       cancelled = true
     }
-  }, [user?.email])
+  }, [user?.email, t])
 
   const reorder = (order: CustomerOrder) => {
     for (const line of order.items) {
@@ -62,12 +83,10 @@ export function AccountOrdersList() {
   if (user?.email && !user.email.includes("@")) {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold">Your Orders</h2>
+        <h2 className="text-xl font-semibold">{t("orders.title")}</h2>
         <Card>
           <CardContent className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              Orders are kept under the email used at checkout. Sign in with that email to see them.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("orders.emailOnly")}</p>
           </CardContent>
         </Card>
       </div>
@@ -76,7 +95,7 @@ export function AccountOrdersList() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Your Orders</h2>
+      <h2 className="text-xl font-semibold">{t("orders.title")}</h2>
       {error ? (
         <Card>
           <CardContent className="p-8 text-center">
@@ -86,25 +105,25 @@ export function AccountOrdersList() {
       ) : orders === null ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 p-10">
-            <LogoTraceLoader loading size={48} strokeWidth={40} ariaLabel="Loading orders" />
-            <p className="text-sm text-muted-foreground">Loading your orders…</p>
+            <LogoTraceLoader loading size={48} strokeWidth={40} ariaLabel={t("orders.loading")} />
+            <p className="text-sm text-muted-foreground">{t("orders.loading")}</p>
           </CardContent>
         </Card>
       ) : orders.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 font-medium">No orders yet</h3>
+            <h3 className="mb-2 font-medium">{t("orders.empty")}</h3>
             <p className="mb-4 text-sm text-muted-foreground">
-              Orders placed with {user?.email} show up here.
+              {user?.email ? t("orders.forEmail", { email: user.email }) : t("orders.emptyHint")}
             </p>
-            <Button onClick={() => router.push("/shop")}>Browse products</Button>
+            <Button onClick={() => router.push(localize("/shop"))}>{t("profile.browse")}</Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {orders.map((order) => {
-            const open = () => router.push(`/profile/orders/${encodeURIComponent(order.orderNumber)}`)
+            const open = () => router.push(localize(`/profile/orders/${encodeURIComponent(order.orderNumber)}`))
             // Prefer the official invoice once it exists; otherwise the live pre-invoice.
             const primaryDoc =
               order.documents.find((doc) => doc.kind === "invoice" && doc.href && doc.status !== "void") ||
@@ -147,34 +166,32 @@ export function AccountOrdersList() {
                           }
                         />
                         <p className="text-[11px] font-medium tracking-[0.14em] text-muted-foreground uppercase">
-                          Order
+                          {t("orders.order")}
                         </p>
                       </div>
                       <h3 className="truncate font-mono text-sm font-medium tracking-tight text-foreground">
                         {order.orderNumber}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        {formatDate(order.createdAt, "en")}
+                        {formatDate(order.createdAt, lang)}
                       </p>
                     </div>
                     <Badge
                       variant={statusVariant(order.status)}
                       className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium"
                     >
-                      {ORDER_STATUS_LABEL[order.status]}
+                      {t(statusKey(order.status))}
                     </Badge>
                   </div>
 
                   <div className="mt-auto flex items-end justify-between gap-3 border-t border-border/60 pt-4">
                     <div>
-                      <p className="text-[11px] text-muted-foreground">Total</p>
+                      <p className="text-[11px] text-muted-foreground">{t("cart.total")}</p>
                       <p className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">
-                        {formatMoney(order.total, order.currency, "en")}
+                        {formatMoney(order.total, order.currency, lang)}
                       </p>
                     </div>
-                    <p className="pb-1 text-xs text-muted-foreground">
-                      {itemCount} {itemCount === 1 ? "item" : "items"}
-                    </p>
+                    <p className="pb-1 text-xs text-muted-foreground">{countLabel(itemCount)}</p>
                   </div>
 
                   <div
@@ -182,18 +199,18 @@ export function AccountOrdersList() {
                     onClick={(event) => event.stopPropagation()}
                   >
                     <Button variant="default" size="sm" onClick={open}>
-                      <ArrowUpRight className="size-3.5" />
-                      Details
+                      <ArrowUpRight className="size-3.5 rtl:-scale-x-100" />
+                      {t("orders.details")}
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => reorder(order)}>
                       <RotateCcw className="size-3.5" />
-                      Reorder
+                      {t("orders.reorder")}
                     </Button>
                     {primaryDoc ? (
                       <Button variant="outline" size="sm" className="col-span-2" asChild>
                         <a href={primaryDoc.href || "#"} target="_blank" rel="noreferrer">
                           <FileText className="size-3.5" />
-                          {DOCUMENT_KIND_LABEL[primaryDoc.kind]}
+                          {t(docKey(primaryDoc.kind))}
                         </a>
                       </Button>
                     ) : null}

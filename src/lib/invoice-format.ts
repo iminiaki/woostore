@@ -75,7 +75,7 @@ export function formatMoney(amount: number, currency: 'usd' | 'irt', lang: Invoi
     const formatted = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
       Math.round(value),
     )
-    return lang === 'fa' ? `${formatted} تومان` : `${formatted} IRT`
+    return lang === 'fa' ? formatted : `${formatted} IRT`
   }
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(value)
 }

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 
 import { anyone, staffOnly } from '@/access/roles'
+import { contentLanguageField, uniqueSlugPerLanguage } from '@/fields/language'
 import { t } from '@/i18n/admin'
 
 export const Brands: CollectionConfig = {
@@ -8,8 +9,9 @@ export const Brands: CollectionConfig = {
   labels: t.brands,
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'slug'],
+    defaultColumns: ['name', 'language', 'slug'],
     group: t.catalog,
+    disableCopyToLocale: true,
   },
   access: {
     create: staffOnly,
@@ -17,18 +19,20 @@ export const Brands: CollectionConfig = {
     read: anyone,
     update: staffOnly,
   },
+  hooks: {
+    beforeValidate: [uniqueSlugPerLanguage('brands')],
+  },
   fields: [
+    contentLanguageField,
     {
       name: 'name',
       type: 'text',
       required: true,
-      localized: true,
     },
     {
       name: 'slug',
       type: 'text',
       required: true,
-      unique: true,
       index: true,
     },
   ],

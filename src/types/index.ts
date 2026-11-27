@@ -135,6 +135,7 @@ export interface CartItem {
   product: Product;
   variantKey: string; // Unique identifier for product + variants
   variantPrice: number; // Price for this specific variant
+  currency?: "IRT" | "USD";
 }
 
 export type SortOption = 'newest' | 'top-sells' | 'price-low-high' | 'price-high-low';

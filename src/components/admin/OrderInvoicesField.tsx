@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 
 import { playErrorSound, playSuccessSound } from '@/lib/feedback-sounds'
 import { formatDate, formatMoney, isExpired, voidReasonLabel } from '@/lib/invoice-format'
+import { TomanMark } from '@/components/toman-mark'
 
 type Kind = 'proforma' | 'invoice'
 
@@ -350,7 +351,18 @@ function DocumentCard({
               {labels.validUntil}: {formatDate(doc.validUntil, lang)}
             </div>
           ) : null}
-          {doc.total != null ? <div>{formatMoney(doc.total, currency, lang)}</div> : null}
+          {doc.total != null ? (
+            <div>
+              {currency === 'irt' && lang === 'fa' ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(Math.round(doc.total))}
+                  <TomanMark className="text-current dark:text-current" />
+                </span>
+              ) : (
+                formatMoney(doc.total, currency, lang)
+              )}
+            </div>
+          ) : null}
           {doc.status === 'void' && doc.voidReason ? (
             <div>{voidReasonLabel(doc.voidReason, lang)}</div>
           ) : null}

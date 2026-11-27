@@ -8,6 +8,7 @@ export const Media: CollectionConfig = {
   labels: t.media,
   admin: {
     group: t.content,
+    disableCopyToLocale: true,
   },
   access: {
     create: staffOnly,
@@ -44,7 +45,6 @@ export const Media: CollectionConfig = {
     {
       name: 'alt',
       type: 'text',
-      localized: true,
       required: true,
     },
   ],

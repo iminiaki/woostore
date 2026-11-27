@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Vazirmatn } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-context";
@@ -10,6 +10,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { BottomNav } from "@/components/bottom-nav";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeFavicon } from "@/components/theme-favicon";
+import { LocaleProvider } from "@/components/locale-provider";
+import { getRequestLocale } from "@/i18n/website";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,6 +21,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const vazirmatn = Vazirmatn({
+  variable: "--font-vazir",
+  subsets: ["arabic", "latin"],
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -56,32 +64,36 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { languages, active, unprefixedDefault } = await getRequestLocale();
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider>
-          <ThemeFavicon />
-          <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <HeaderHeroModeProvider>
-                  <SiteHeader />
-                  <main className="min-h-[calc(100vh-4rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
-                    {children}
-                  </main>
-                  <SiteFooter />
-                  <BottomNav />
-                  <Toaster />
-                </HeaderHeroModeProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </AuthProvider>
-        </ThemeProvider>
+    <html lang={active.code} dir={active.direction} suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${vazirmatn.variable} antialiased`}>
+        <LocaleProvider languages={languages} initialCode={active.code} unprefixedDefault={unprefixedDefault}>
+          <ThemeProvider>
+            <ThemeFavicon />
+            <AuthProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <HeaderHeroModeProvider>
+                    <SiteHeader />
+                    <main className="min-h-[calc(100vh-4rem)] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
+                      {children}
+                    </main>
+                    <SiteFooter />
+                    <BottomNav />
+                    <Toaster />
+                  </HeaderHeroModeProvider>
+                </WishlistProvider>
+              </CartProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

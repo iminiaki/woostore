@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 
+import { TomanMark } from '@/components/toman-mark'
 import { PrintButton } from '@/components/print-button'
 import {
   formatDate,
@@ -107,7 +109,20 @@ export function InvoiceDocument({
   }).toString()}`
   const sellerLines = partyLines(doc.seller, lang)
   const buyerLines = partyLines(doc.buyer, lang)
-  const money = (amount: number) => formatMoney(amount, doc.currency, lang)
+  const money = (amount: number) => {
+    if (doc.currency === 'irt' && lang === 'fa') {
+      const formatted = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(
+        Math.round(Number(amount) || 0),
+      )
+      return (
+        <span className="money">
+          {formatted}
+          <TomanMark className="text-current dark:text-current" />
+        </span>
+      )
+    }
+    return formatMoney(amount, doc.currency, lang)
+  }
 
   return (
     <div className="page" data-lang={lang}>
@@ -295,7 +310,7 @@ export function InvoiceDocument({
   )
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({ label, value, strong }: { label: string; value: ReactNode; strong?: boolean }) {
   return (
     <div className={strong ? 'total-row is-strong' : 'total-row'}>
       <span>{label}</span>
