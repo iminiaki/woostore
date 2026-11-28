@@ -191,6 +191,8 @@ export interface Coupon {
   applicableCategories?: string[];
   applicableProducts?: string[];
   description?: string;
+  /** Payload locale the description was loaded in. */
+  descriptionLocale?: string;
   freeShipping?: boolean;
 }
 

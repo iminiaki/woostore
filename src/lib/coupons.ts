@@ -7,12 +7,16 @@ export type CouponDoc = {
   active?: boolean | null
   discountType: DiscountType
   amount: number
+  amountIrt?: number | null
   freeShipping?: boolean | null
   expiryDate?: string | null
   startDate?: string | null
   minimumAmount?: number | null
   maximumAmount?: number | null
   maximumDiscount?: number | null
+  minimumAmountIrt?: number | null
+  maximumAmountIrt?: number | null
+  maximumDiscountIrt?: number | null
   usageLimit?: number | null
   usageLimitPerUser?: number | null
   usageCount?: number | null
@@ -47,7 +51,43 @@ export type CouponValidationResult =
         maxDiscount?: number
       }
     }
-  | { ok: false; error: string }
+  | { ok: false; error: string; code: CouponErrorCode; amount?: number }
+
+export type CouponCurrency = 'usd' | 'irt'
+
+export type CouponErrorCode =
+  | 'inactive'
+  | 'notStarted'
+  | 'expired'
+  | 'usageLimit'
+  | 'userLimit'
+  | 'email'
+  | 'minimum'
+  | 'maximum'
+  | 'noEligible'
+  | 'currency'
+
+/** Money values for the cart's currency. Toman carts never fall back to the USD numbers. */
+function moneyRules(coupon: CouponDoc, currency: CouponCurrency) {
+  if (currency === 'irt') {
+    return {
+      fixedAmount: coupon.amountIrt ?? null,
+      minimumAmount: coupon.minimumAmountIrt ?? null,
+      maximumAmount: coupon.maximumAmountIrt ?? null,
+      maximumDiscount: coupon.maximumDiscountIrt ?? null,
+    }
+  }
+  return {
+    fixedAmount: Number(coupon.amount || 0),
+    minimumAmount: coupon.minimumAmount ?? null,
+    maximumAmount: coupon.maximumAmount ?? null,
+    maximumDiscount: coupon.maximumDiscount ?? null,
+  }
+}
+
+function formatLimit(amount: number, currency: CouponCurrency) {
+  return currency === 'irt' ? `${amount.toLocaleString('en-US')} Toman` : `$${amount}`
+}
 
 function relIds(list?: (string | number | { id?: string | number })[] | null): string[] {
   if (!list?.length) return []
@@ -82,22 +122,25 @@ function lineEligible(coupon: CouponDoc, line: CartLineForCoupon): boolean {
 export function calculateCouponDiscount(
   coupon: CouponDoc,
   lines: CartLineForCoupon[],
-  options?: { email?: string; userUsageCount?: number },
+  options?: { email?: string; userUsageCount?: number; currency?: CouponCurrency },
 ): CouponValidationResult {
+  const currency: CouponCurrency = options?.currency === 'irt' ? 'irt' : 'usd'
+  const rules = moneyRules(coupon, currency)
+
   if (!coupon.active) {
-    return { ok: false, error: 'This coupon is inactive' }
+    return { ok: false, error: 'This coupon is inactive', code: 'inactive' }
   }
 
   const now = Date.now()
   if (coupon.startDate && new Date(coupon.startDate).getTime() > now) {
-    return { ok: false, error: 'This coupon is not valid yet' }
+    return { ok: false, error: 'This coupon is not valid yet', code: 'notStarted' }
   }
   if (coupon.expiryDate && new Date(coupon.expiryDate).getTime() < now) {
-    return { ok: false, error: 'This coupon has expired' }
+    return { ok: false, error: 'This coupon has expired', code: 'expired' }
   }
 
   if (coupon.usageLimit != null && Number(coupon.usageCount || 0) >= coupon.usageLimit) {
-    return { ok: false, error: 'Coupon usage limit reached' }
+    return { ok: false, error: 'Coupon usage limit reached', code: 'usageLimit' }
   }
 
   if (
@@ -105,7 +148,7 @@ export function calculateCouponDiscount(
     options?.userUsageCount != null &&
     options.userUsageCount >= coupon.usageLimitPerUser
   ) {
-    return { ok: false, error: 'You have already used this coupon the maximum times' }
+    return { ok: false, error: 'You have already used this coupon the maximum times', code: 'userLimit' }
   }
 
   const emails = (coupon.emailRestrictions || [])
@@ -114,21 +157,29 @@ export function calculateCouponDiscount(
   if (emails.length) {
     const email = options?.email?.trim().toLowerCase()
     if (!email || !emails.includes(email)) {
-      return { ok: false, error: 'This coupon is not valid for your email' }
+      return { ok: false, error: 'This coupon is not valid for your email', code: 'email' }
     }
   }
 
   const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0)
-  if (coupon.minimumAmount != null && subtotal < coupon.minimumAmount) {
+  const isFixed = coupon.discountType === 'fixed_cart' || coupon.discountType === 'fixed_product'
+  if (isFixed && rules.fixedAmount == null) {
+    return { ok: false, error: 'This coupon is not available in this currency', code: 'currency' }
+  }
+  if (rules.minimumAmount != null && subtotal < rules.minimumAmount) {
     return {
       ok: false,
-      error: `Minimum order amount of $${coupon.minimumAmount} required`,
+      error: `Minimum order amount of ${formatLimit(rules.minimumAmount, currency)} required`,
+      code: 'minimum',
+      amount: rules.minimumAmount,
     }
   }
-  if (coupon.maximumAmount != null && subtotal > coupon.maximumAmount) {
+  if (rules.maximumAmount != null && subtotal > rules.maximumAmount) {
     return {
       ok: false,
-      error: `This coupon only applies to orders up to $${coupon.maximumAmount}`,
+      error: `This coupon only applies to orders up to ${formatLimit(rules.maximumAmount, currency)}`,
+      code: 'maximum',
+      amount: rules.maximumAmount,
     }
   }
 
@@ -142,7 +193,7 @@ export function calculateCouponDiscount(
       relIds(coupon.categoryIds).length > 0) &&
     eligible.length === 0
   ) {
-    return { ok: false, error: 'No eligible products in your cart for this coupon' }
+    return { ok: false, error: 'No eligible products in your cart for this coupon', code: 'noEligible' }
   }
 
   let discountAmount = 0
@@ -152,19 +203,19 @@ export function calculateCouponDiscount(
     case 'percent': {
       const base = eligible.length ? eligibleSubtotal : subtotal
       discountAmount = (base * Number(coupon.amount || 0)) / 100
-      if (coupon.maximumDiscount != null) {
-        discountAmount = Math.min(discountAmount, coupon.maximumDiscount)
+      if (rules.maximumDiscount != null) {
+        discountAmount = Math.min(discountAmount, rules.maximumDiscount)
       }
       break
     }
     case 'fixed_cart': {
-      discountAmount = Math.min(Number(coupon.amount || 0), subtotal)
+      discountAmount = Math.min(Number(rules.fixedAmount || 0), subtotal)
       break
     }
     case 'fixed_product': {
       // Per eligible unit, Woo-style
       const units = eligible.reduce((n, l) => n + l.quantity, 0)
-      discountAmount = Math.min(Number(coupon.amount || 0) * units, eligibleSubtotal)
+      discountAmount = Math.min(Number(rules.fixedAmount || 0) * units, eligibleSubtotal)
       break
     }
     case 'free_shipping': {
@@ -175,6 +226,8 @@ export function calculateCouponDiscount(
   }
 
   discountAmount = Math.max(0, Math.min(discountAmount, subtotal))
+  // Toman has no fractional unit.
+  if (currency === 'irt') discountAmount = Math.round(discountAmount)
 
   const type: 'percentage' | 'fixed' | 'free_shipping' =
     coupon.discountType === 'percent'
@@ -191,9 +244,10 @@ export function calculateCouponDiscount(
       id: String(coupon.id),
       code: coupon.code,
       type,
-      value: Number(coupon.amount || 0),
+      value:
+        coupon.discountType === 'percent' ? Number(coupon.amount || 0) : Number(rules.fixedAmount || 0),
       description: coupon.description || undefined,
-      maxDiscount: coupon.maximumDiscount ?? undefined,
+      maxDiscount: rules.maximumDiscount ?? undefined,
     },
   }
 }

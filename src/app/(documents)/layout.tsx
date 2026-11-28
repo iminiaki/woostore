@@ -12,6 +12,14 @@ const font = Vazirmatn({
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
+  // Same icons as the storefront; without these the route falls back to app/icon.png.
+  icons: {
+    icon: [
+      { url: '/favicon-light.png', media: '(prefers-color-scheme: light)', type: 'image/png' },
+      { url: '/favicon-dark.png', media: '(prefers-color-scheme: dark)', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
 }
 
 export default function DocumentsLayout({ children }: { children: React.ReactNode }) {

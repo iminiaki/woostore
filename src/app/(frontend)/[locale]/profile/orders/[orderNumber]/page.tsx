@@ -25,7 +25,8 @@ import {
   type CustomerOrderDocument,
   type CustomerOrderStatus,
 } from "@/lib/customer-order"
-import { formatDate, formatMoney } from "@/lib/invoice-format"
+import { StoreMoney } from "@/components/store-money"
+import { documentHrefForLocale, formatDate } from "@/lib/invoice-format"
 import { cn } from "@/lib/utils"
 
 const sectionTitleClass = "text-base font-semibold tracking-tight"
@@ -114,8 +115,9 @@ function OrderDetail() {
   const { user } = useAuth()
   const { t, active } = useI18n()
   const lang = invoiceLang(active.code)
-  const money = (amount: number, currency: CustomerOrder["currency"]) =>
-    formatMoney(amount, currency, lang)
+  const money = (amount: number, currency: CustomerOrder["currency"]) => (
+    <StoreMoney amount={amount} currency={currency === "irt" ? "IRT" : "USD"} locale={active.code} />
+  )
   const { dispatch } = useCart()
   const [order, setOrder] = useState<CustomerOrder | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -294,7 +296,7 @@ function OrderDetail() {
                         : t("cart.discount")}
                     </span>
                     <span className="tabular-nums">
-                      -{money(order.discountTotal, order.currency)}
+                      {money(-order.discountTotal, order.currency)}
                     </span>
                   </div>
                 ) : null}
@@ -320,7 +322,7 @@ function OrderDetail() {
                   <>
                     <div className="flex justify-between gap-4">
                       <span className="text-muted-foreground">{t("checkout.walletLine")}</span>
-                      <span className="tabular-nums">-{money(order.walletAmount, order.currency)}</span>
+                      <span className="tabular-nums">{money(-order.walletAmount, order.currency)}</span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-muted-foreground">{t("checkout.due")}</span>
@@ -371,7 +373,7 @@ function OrderDetail() {
                     </p>
                     {doc.href ? (
                       <Button asChild size="sm" variant="outline" className="mt-3 w-full">
-                        <a href={doc.href} target="_blank" rel="noreferrer">
+                        <a href={documentHrefForLocale(doc.href, active.code)} target="_blank" rel="noreferrer">
                           <FileText className="size-3.5" />
                           {t("orders.openDoc", { name: t(docKindKey(doc.kind)) })}
                         </a>

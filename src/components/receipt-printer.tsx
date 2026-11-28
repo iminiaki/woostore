@@ -9,6 +9,7 @@ import {
   useContext,
 } from "react"
 
+import { useI18n } from "@/components/locale-provider"
 import { cn } from "@/lib/utils"
 
 export type ReceiptPrinterStage = "processing" | "printing" | "complete"
@@ -84,12 +85,6 @@ const printingKeyframeTimes = [
   0.81, 0.84, 0.915, 0.945, 1,
 ]
 
-const statusLabels: Record<ReceiptPrinterStage, ReactNode> = {
-  processing: "Processing your order",
-  printing: "Printing your receipt",
-  complete: "Order complete",
-}
-
 const machineClassName =
   "relative isolate w-full overflow-hidden rounded-[var(--printer-radius)] border border-neutral-950 bg-neutral-900 p-[var(--printer-inset)] pb-8 shadow-[0_20px_36px_-20px_rgba(0,0,0,0.55),0_6px_14px_-8px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.55)] [--printer-inner-radius:calc(var(--printer-radius)_-_var(--printer-inset))] [--printer-inset:0.75rem] [--printer-radius:1.5rem] before:pointer-events-none before:absolute before:inset-0 before:z-0 before:rounded-[inherit] before:bg-[radial-gradient(circle,rgba(255,255,255,0.16)_0.5px,transparent_0.6px)] before:bg-[length:4px_4px] before:opacity-40 before:content-['']"
 
@@ -102,7 +97,7 @@ function useReceiptPrinter(component: string) {
 }
 
 function ReceiptPrinterRoot({
-  "aria-label": ariaLabel = "Receipt printer",
+  "aria-label": ariaLabel,
   animate = true,
   children,
   className,
@@ -110,6 +105,7 @@ function ReceiptPrinterRoot({
   stage,
   ...props
 }: ReceiptPrinterRootProps) {
+  const { t } = useI18n()
   const shouldReduceMotion = useReducedMotion()
   const context = {
     animate,
@@ -121,7 +117,7 @@ function ReceiptPrinterRoot({
   return (
     <ReceiptPrinterContext.Provider value={context}>
       <section
-        aria-label={ariaLabel}
+        aria-label={ariaLabel ?? t("receipt.printer")}
         className={cn("relative isolate flex w-full max-w-sm flex-col items-center", className)}
         data-stage={stage}
         {...props}
@@ -223,7 +219,13 @@ function StatusIndicator({
 }
 
 function ReceiptPrinterStatus({ children, className, ...props }: ReceiptPrinterStatusProps) {
+  const { t } = useI18n()
   const { animate, shouldMove, stage } = useReceiptPrinter("ReceiptPrinter.Status")
+  const statusLabel = {
+    processing: t("receipt.processing"),
+    printing: t("receipt.printing"),
+    complete: t("receipt.complete"),
+  }[stage]
 
   return (
     <div className={cn("flex min-w-0 items-center gap-2", className)} {...props}>
@@ -244,7 +246,7 @@ function ReceiptPrinterStatus({ children, className, ...props }: ReceiptPrinterS
             key={stage}
             transition={{ duration: animate ? 0.18 : 0, ease: easeOut }}
           >
-            {children ?? statusLabels[stage]}
+            {children ?? statusLabel}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -256,7 +258,7 @@ function ReceiptPrinterPaper({ children, className, style, ...props }: ReceiptPr
   return (
     <article
       className={cn(
-        "relative z-10 min-h-80 bg-[#fff] px-6 pt-7 pb-8 font-mono text-neutral-950",
+        "rtl:font-persian rtl:tracking-normal rtl:normal-case relative z-10 min-h-80 bg-[#fff] px-6 pt-7 pb-8 font-mono text-neutral-950",
         className,
       )}
       style={{ clipPath: receiptClipPath, ...style }}

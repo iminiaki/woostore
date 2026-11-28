@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 import { TomanMark } from '@/components/toman-mark'
@@ -92,21 +91,14 @@ const text = {
 export function InvoiceDocument({
   doc,
   lang,
-  token,
 }: {
   doc: InvoiceView
   lang: InvoiceLang
-  token: string
 }) {
   const t = text[lang]
   const title = doc.kind === 'proforma' ? t.proforma : t.invoice
   const expired = isExpired(doc)
   const stamp = doc.status === 'void' ? t.void : doc.status === 'superseded' ? t.superseded : null
-  const other = lang === 'fa' ? 'en' : 'fa'
-  const switchHref = `/documents/${encodeURIComponent(doc.number)}?${new URLSearchParams({
-    token,
-    lang: other,
-  }).toString()}`
   const sellerLines = partyLines(doc.seller, lang)
   const buyerLines = partyLines(doc.buyer, lang)
   const money = (amount: number) => {
@@ -127,11 +119,6 @@ export function InvoiceDocument({
   return (
     <div className="page" data-lang={lang}>
       <div className="toolbar no-print">
-        <div className="langs">
-          <Link href={switchHref} className="toolbar-btn">
-            {lang === 'fa' ? 'English' : 'فارسی'}
-          </Link>
-        </div>
         <PrintButton label={t.print} />
       </div>
 

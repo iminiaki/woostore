@@ -9,6 +9,7 @@ import { useCart } from "@/components/cart-store";
 import { useI18n } from "@/components/locale-provider";
 import { LogoTraceLoader } from "@/components/LogoTraceLoader";
 import { playErrorSound } from "@/lib/feedback-sounds";
+import { formatStoreAmount, usesTomanMark } from "@/i18n/languages";
 
 interface CouponInputProps {
   subtotal: number;
@@ -28,9 +29,29 @@ export function CouponInput({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { state, dispatch } = useCart();
-  const { t } = useI18n();
+  const { t, payloadLocale, active } = useI18n();
+  const currency = state.items.find((item) => item.currency)?.currency || active.currency;
 
-  const couponError = (message?: string) => {
+  const limitAmount = (amount: number) => {
+    const formatted = formatStoreAmount(amount, currency, active.code);
+    return usesTomanMark(currency, active.code) ? `${formatted} ${t("coupon.toman")}` : formatted;
+  };
+
+  const couponError = (message?: string, code?: string, amount?: number) => {
+    if ((code === "minimum" || code === "maximum") && amount != null) {
+      return t(`coupon.${code}`, { amount: limitAmount(amount) });
+    }
+    switch (code) {
+      case "inactive":
+      case "notStarted":
+      case "expired":
+      case "usageLimit":
+      case "userLimit":
+      case "email":
+      case "noEligible":
+      case "currency":
+        return t(`coupon.${code}`);
+    }
     if (message === "Coupon code is required") return t("coupon.required");
     if (message === "Cart is empty") return t("coupon.emptyCart");
     if (message === "Invalid coupon code") return t("coupon.invalid");
@@ -48,6 +69,8 @@ export function CouponInput({
         body: JSON.stringify({
           code,
           email,
+          locale: payloadLocale,
+          currency: currency === "IRT" ? "irt" : "usd",
           lines: state.items.map((item) => ({
             productId: item.productId,
             categoryId: undefined,
@@ -61,6 +84,8 @@ export function CouponInput({
       });
       const data = (await res.json()) as {
         error?: string;
+        code?: string;
+        amount?: number;
         discountAmount?: number;
         freeShipping?: boolean;
         finalPrice?: number;
@@ -76,7 +101,7 @@ export function CouponInput({
 
       if (!res.ok || !data.coupon) {
         playErrorSound();
-        setError(couponError(data.error));
+        setError(couponError(data.error, data.code, data.amount));
         return;
       }
 
@@ -89,6 +114,7 @@ export function CouponInput({
             type: data.coupon.type,
             value: data.coupon.value,
             description: data.coupon.description,
+            descriptionLocale: payloadLocale,
             maxDiscount: data.coupon.maxDiscount,
             freeShipping: data.freeShipping,
             usedCount: 0,
@@ -140,7 +166,8 @@ export function CouponInput({
                   {t("coupon.applied", { code: state.appliedCoupon.coupon.code })}
                 </p>
                 <p className="text-xs text-green-600">
-                  {state.appliedCoupon.coupon.description ||
+                  {(state.appliedCoupon.coupon.descriptionLocale === payloadLocale &&
+                    state.appliedCoupon.coupon.description) ||
                     (state.appliedCoupon.freeShipping
                       ? t("coupon.freeShipping")
                       : t("coupon.discountApplied"))}
@@ -148,6 +175,7 @@ export function CouponInput({
               </div>
             </div>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={handleRemoveCoupon}
@@ -170,6 +198,7 @@ export function CouponInput({
               disabled={loading}
             />
             <Button
+              type="button"
               onClick={handleApplyCoupon}
               disabled={!couponCode.trim() || loading}
               size="sm"

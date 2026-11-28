@@ -646,7 +646,10 @@ async function seed() {
       amount: 10,
       minimumAmount: 50,
       maximumDiscount: 100,
+      minimumAmountIrt: 50 * USD_TO_IRT,
+      maximumDiscountIrt: 100 * USD_TO_IRT,
       description: 'Save 10% on orders over $50',
+      descriptionFa: '۱۰٪ تخفیف برای سفارش‌های بالای ۵۰ دلار',
     },
     {
       code: 'FREESHIP',
@@ -654,7 +657,9 @@ async function seed() {
       amount: 0,
       freeShipping: true,
       minimumAmount: 100,
+      minimumAmountIrt: 100 * USD_TO_IRT,
       description: 'Free shipping on orders over $100',
+      descriptionFa: 'ارسال رایگان برای سفارش‌های بالای ۱۰۰ دلار',
     },
     {
       code: 'WELCOME20',
@@ -662,19 +667,25 @@ async function seed() {
       amount: 20,
       minimumAmount: 30,
       maximumDiscount: 50,
+      minimumAmountIrt: 30 * USD_TO_IRT,
+      maximumDiscountIrt: 50 * USD_TO_IRT,
       description: 'Welcome discount — 20% off',
+      descriptionFa: 'تخفیف خوش‌آمدگویی — ۲۰٪',
     },
     {
       code: 'FLAT15',
       discountType: 'fixed_cart' as const,
       amount: 15,
+      amountIrt: 15 * USD_TO_IRT,
       minimumAmount: 75,
+      minimumAmountIrt: 75 * USD_TO_IRT,
       description: '$15 off carts over $75',
+      descriptionFa: '۱۵ دلار تخفیف برای سبدهای بالای ۷۵ دلار',
     },
   ]
 
   const couponIds: Record<string, string | number> = {}
-  for (const c of couponDefs) {
+  for (const { descriptionFa, ...c } of couponDefs) {
     const existing = await payload.find({
       collection: 'coupons',
       where: { code: { equals: c.code } },
@@ -694,6 +705,13 @@ async function seed() {
         startDate: new Date('2024-01-01').toISOString(),
       },
       locale: 'en',
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'coupons',
+      id: doc.id,
+      data: { description: descriptionFa },
+      locale: 'fa',
       overrideAccess: true,
     })
     couponIds[c.code] = doc.id

@@ -119,7 +119,7 @@ export async function POST(req: Request) {
           quantity: i.quantity,
           unitPrice: i.unitPrice,
         })),
-        { email: body.email },
+        { email: body.email, currency: body.currency === 'irt' ? 'irt' : 'usd' },
       )
       if (!result.ok) {
         return NextResponse.json({ error: result.error }, { status: 400 })

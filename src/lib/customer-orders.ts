@@ -107,12 +107,16 @@ function toStatusHistory(order: Order): CustomerOrderStatusEvent[] {
 }
 
 export function toCustomerOrder(order: Order, invoices: Invoice[]): CustomerOrder {
-  const documents = invoices
+  const all = invoices
     .filter((doc) => {
       const orderId = typeof doc.order === "object" ? doc.order.id : doc.order
       return orderId === order.id
     })
     .map(toDocument)
+  // Once the final invoice exists, the pre-invoice is no longer shown to the customer.
+  const hasInvoice = all.some((doc) => doc.kind === "invoice" && doc.status !== "void")
+  const documents = all
+    .filter((doc) => !(hasInvoice && doc.kind === "proforma"))
     .sort((a, b) => {
       if (a.kind !== b.kind) return a.kind === "proforma" ? -1 : 1
       if (a.status === b.status) return 0

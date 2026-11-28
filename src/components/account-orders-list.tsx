@@ -19,7 +19,8 @@ import {
   type CustomerOrderDocument,
   type CustomerOrderStatus,
 } from "@/lib/customer-order"
-import { formatDate, formatMoney } from "@/lib/invoice-format"
+import { StoreMoney } from "@/components/store-money"
+import { documentHrefForLocale, formatDate } from "@/lib/invoice-format"
 
 function invoiceLang(code: string) {
   return code.toLowerCase().startsWith("fa") ? "fa" : "en"
@@ -188,7 +189,11 @@ export function AccountOrdersList() {
                     <div>
                       <p className="text-[11px] text-muted-foreground">{t("cart.total")}</p>
                       <p className="mt-0.5 text-2xl font-semibold tracking-tight tabular-nums">
-                        {formatMoney(order.total, order.currency, lang)}
+                        <StoreMoney
+                          amount={order.total}
+                          currency={order.currency === "irt" ? "IRT" : "USD"}
+                          locale={active.code}
+                        />
                       </p>
                     </div>
                     <p className="pb-1 text-xs text-muted-foreground">{countLabel(itemCount)}</p>
@@ -208,7 +213,11 @@ export function AccountOrdersList() {
                     </Button>
                     {primaryDoc ? (
                       <Button variant="outline" size="sm" className="col-span-2" asChild>
-                        <a href={primaryDoc.href || "#"} target="_blank" rel="noreferrer">
+                        <a
+                          href={primaryDoc.href ? documentHrefForLocale(primaryDoc.href, active.code) : "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           <FileText className="size-3.5" />
                           {t(docKey(primaryDoc.kind))}
                         </a>

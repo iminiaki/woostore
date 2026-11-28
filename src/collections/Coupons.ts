@@ -43,7 +43,14 @@ export const Coupons: CollectionConfig = {
     {
       name: 'description',
       type: 'textarea',
+      localized: true,
       label: { en: 'Description', fa: 'توضیحات' },
+      admin: {
+        description: {
+          en: 'Shown to customers when the code is applied. Fill it in for each language.',
+          fa: 'هنگام اعمال کد به مشتری نمایش داده می‌شود. برای هر زبان جداگانه وارد کنید.',
+        },
+      },
     },
     {
       name: 'active',
@@ -69,19 +76,40 @@ export const Coupons: CollectionConfig = {
       ],
     },
     {
-      name: 'amount',
-      type: 'number',
-      required: true,
-      min: 0,
-      defaultValue: 0,
-      label: { en: 'Coupon amount', fa: 'مقدار تخفیف' },
-      admin: {
-        description: {
-          en: 'Percent (0–100) or fixed USD amount depending on type. Ignored for free shipping.',
-          fa: 'درصد یا مبلغ ثابت به دلار — برای ارسال رایگان نادیده گرفته می‌شود.',
+      type: 'row',
+      fields: [
+        {
+          name: 'amount',
+          type: 'number',
+          required: true,
+          min: 0,
+          defaultValue: 0,
+          label: { en: 'Coupon amount (% or USD)', fa: 'مقدار تخفیف (درصد یا دلار)' },
+          admin: {
+            description: {
+              en: 'Percent (0–100) for percentage coupons, otherwise the fixed USD amount. Ignored for free shipping.',
+              fa: 'برای نوع درصدی، درصد (۰ تا ۱۰۰)؛ در غیر این صورت مبلغ ثابت به دلار. برای ارسال رایگان نادیده گرفته می‌شود.',
+            },
+            step: 0.01,
+          },
         },
-        step: 0.01,
-      },
+        {
+          name: 'amountIrt',
+          type: 'number',
+          min: 0,
+          label: { en: 'Fixed amount (Toman)', fa: 'مبلغ ثابت (تومان)' },
+          admin: {
+            step: 1,
+            description: {
+              en: 'Fixed discount for Toman carts. Required for the coupon to work in Toman.',
+              fa: 'مبلغ تخفیف برای سبدهای تومانی. بدون آن، این کد در تومان کار نمی‌کند.',
+            },
+            condition: (_, siblingData) =>
+              siblingData?.discountType === 'fixed_cart' ||
+              siblingData?.discountType === 'fixed_product',
+          },
+        },
+      ],
     },
     {
       name: 'freeShipping',
@@ -117,38 +145,94 @@ export const Coupons: CollectionConfig = {
       ],
     },
     {
-      name: 'minimumAmount',
-      type: 'number',
-      min: 0,
-      label: { en: 'Minimum spend (USD)', fa: 'حداقل خرید (دلار)' },
-      admin: { step: 0.01 },
+      type: 'row',
+      fields: [
+        {
+          name: 'minimumAmount',
+          type: 'number',
+          min: 0,
+          label: { en: 'Minimum spend (USD)', fa: 'حداقل خرید (دلار)' },
+          admin: { step: 0.01 },
+        },
+        {
+          name: 'minimumAmountIrt',
+          type: 'number',
+          min: 0,
+          label: { en: 'Minimum spend (Toman)', fa: 'حداقل خرید (تومان)' },
+          admin: {
+            step: 1,
+            description: {
+              en: 'Toman carts use this. Empty = no limit in Toman.',
+              fa: 'برای سبدهای تومانی. خالی = بدون محدودیت در تومان.',
+            },
+          },
+        },
+      ],
     },
     {
-      name: 'maximumAmount',
-      type: 'number',
-      min: 0,
-      label: { en: 'Maximum spend (USD)', fa: 'حداکثر خرید (دلار)' },
-      admin: {
-        step: 0.01,
-        description: {
-          en: 'Coupon only valid if cart subtotal is at or below this amount.',
-          fa: 'فقط اگر جمع سبد کمتر یا مساوی این مبلغ باشد.',
+      type: 'row',
+      fields: [
+        {
+          name: 'maximumAmount',
+          type: 'number',
+          min: 0,
+          label: { en: 'Maximum spend (USD)', fa: 'حداکثر خرید (دلار)' },
+          admin: {
+            step: 0.01,
+            description: {
+              en: 'Coupon only valid if cart subtotal is at or below this amount.',
+              fa: 'فقط اگر جمع سبد کمتر یا مساوی این مبلغ باشد.',
+            },
+          },
         },
-      },
+        {
+          name: 'maximumAmountIrt',
+          type: 'number',
+          min: 0,
+          label: { en: 'Maximum spend (Toman)', fa: 'حداکثر خرید (تومان)' },
+          admin: {
+            step: 1,
+            description: {
+              en: 'Toman carts use this. Empty = no limit in Toman.',
+              fa: 'برای سبدهای تومانی. خالی = بدون محدودیت در تومان.',
+            },
+          },
+        },
+      ],
     },
     {
-      name: 'maximumDiscount',
-      type: 'number',
-      min: 0,
-      label: { en: 'Max discount (USD)', fa: 'سقف تخفیف (دلار)' },
+      type: 'row',
       admin: {
-        step: 0.01,
-        description: {
-          en: 'Cap for percentage discounts.',
-          fa: 'سقف تخفیف برای نوع درصدی.',
-        },
         condition: (_, siblingData) => siblingData?.discountType === 'percent',
       },
+      fields: [
+        {
+          name: 'maximumDiscount',
+          type: 'number',
+          min: 0,
+          label: { en: 'Max discount (USD)', fa: 'سقف تخفیف (دلار)' },
+          admin: {
+            step: 0.01,
+            description: {
+              en: 'Cap for percentage discounts.',
+              fa: 'سقف تخفیف برای نوع درصدی.',
+            },
+          },
+        },
+        {
+          name: 'maximumDiscountIrt',
+          type: 'number',
+          min: 0,
+          label: { en: 'Max discount (Toman)', fa: 'سقف تخفیف (تومان)' },
+          admin: {
+            step: 1,
+            description: {
+              en: 'Toman carts use this. Empty = no limit in Toman.',
+              fa: 'برای سبدهای تومانی. خالی = بدون محدودیت در تومان.',
+            },
+          },
+        },
+      ],
     },
     {
       type: 'collapsible',

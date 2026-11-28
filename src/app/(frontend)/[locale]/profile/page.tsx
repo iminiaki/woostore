@@ -333,10 +333,24 @@ export default function ProfilePage() {
               <p className="text-sm text-muted-foreground">{t("profile.noAddresses")}</p>
             ) : null}
             {addresses.map((address) => (
-              <div key={address.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-medium">{address.title}</h3>
-                  <div className="flex gap-1">
+              <div
+                key={address.id}
+                className={cn(
+                  "rounded-lg border p-4 transition-colors",
+                  address.isDefault && "border-foreground/40 bg-muted/30",
+                )}
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h3 className="truncate font-medium">{address.title}</h3>
+                    {address.isDefault ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-foreground px-2 py-0.5 text-[11px] font-medium text-background">
+                        <Star className="size-3 fill-current" />
+                        {t("profile.defaultAddress")}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="-mt-1 -me-2 flex shrink-0 gap-1">
                   {!address.isDefault && (
                       <Button 
                         variant="ghost" 
@@ -415,12 +429,6 @@ export default function ProfilePage() {
                     {t("profile.locationSet")}
                   </p>
                 ) : null}
-                {address.isDefault && (
-                  <div className="inline-flex items-center gap-1 mt-2 text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-                    <Star className="h-3 w-3 fill-current" />
-                    <span>{t("profile.defaultAddress")}</span>
-                  </div>
-                )}
               </div>
             ))}
           </div>

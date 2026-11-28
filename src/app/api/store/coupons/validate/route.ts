@@ -8,6 +8,8 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       code?: string
       email?: string
+      locale?: string
+      currency?: string
       lines?: {
         productId: string
         categoryId?: string
@@ -33,6 +35,7 @@ export async function POST(req: Request) {
       where: { code: { equals: code } },
       limit: 1,
       depth: 0,
+      locale: body.locale === 'en' ? 'en' : 'fa',
       overrideAccess: true,
     })
 
@@ -83,10 +86,14 @@ export async function POST(req: Request) {
     const result = calculateCouponDiscount(doc, lines, {
       email: body.email,
       userUsageCount,
+      currency: body.currency === 'irt' ? 'irt' : 'usd',
     })
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
+      return NextResponse.json(
+        { error: result.error, code: result.code, amount: result.amount },
+        { status: 400 },
+      )
     }
 
     return NextResponse.json({

@@ -46,7 +46,7 @@ export default async function DocumentPage({
     )
   }
 
-  return <InvoiceDocument doc={doc} lang={lang} token={token} />
+  return <InvoiceDocument doc={doc} lang={lang} />
 }
 
 async function loadDocument(number: string, token: string): Promise<InvoiceView | null> {

@@ -132,6 +132,14 @@ export function documentPath(number: string, token: string, lang?: InvoiceLang) 
   return `/documents/${encodeURIComponent(number)}?${query.toString()}`
 }
 
+/** Pins a document link to the shopper's language; documents exist in Persian and English only. */
+export function documentHrefForLocale(href: string, localeCode: string) {
+  const [path, query = ''] = href.split('?')
+  const params = new URLSearchParams(query)
+  params.set('lang', localeCode.toLowerCase().startsWith('fa') ? 'fa' : 'en')
+  return `${path}?${params.toString()}`
+}
+
 /** Customer-facing path only. Rejects anything that is not this site's document route. */
 export function safeDocumentPath(value: string | undefined | null) {
   if (!value || !value.startsWith('/documents/')) return null

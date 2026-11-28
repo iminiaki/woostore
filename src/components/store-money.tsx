@@ -8,6 +8,7 @@ export function StoreMoney({
   locale,
   className,
   compare,
+  markClassName,
 }: {
   amount: number
   currency: StoreCurrency
@@ -15,6 +16,8 @@ export function StoreMoney({
   className?: string
   /** When set and different from `amount`, both numbers share one toman mark. */
   compare?: number
+  /** Override the toman mark's color, e.g. `text-current` on surfaces that don't follow the theme. */
+  markClassName?: string
 }) {
   const numbers =
     compare != null && compare !== amount
@@ -28,7 +31,7 @@ export function StoreMoney({
   return (
     <span className={cn("inline-flex items-center gap-1", className)}>
       <span>{numbers}</span>
-      <TomanMark />
+      <TomanMark className={markClassName} />
     </span>
   )
 }
